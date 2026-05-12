@@ -11,39 +11,20 @@ import time
 from datetime import date
 from html import escape
 
-import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from analysis import (
-    annualized_portfolio_metrics,
-    cagr,
-    compute_beta_alpha,
-    correlation_matrix,
-    daily_returns,
-    efficient_frontier,
-    max_drawdown,
-    monte_carlo_simulation,
-    normalize_prices,
-    optimize_max_sharpe,
-    optimize_min_variance,
-    portfolio_daily_returns,
-    portfolio_value_series,
-    sharpe_ratio,
-    sortino_ratio,
-    summary_per_asset,
-)
 from constants import (
     LOADER_MIN_SECONDS,
     LOADER_PAINT_DELAY,
     MAX_TICKERS,
     MIN_PERIOD_DAYS,
-    MIN_TRADING_ROWS,
     WEIGHT_TOLERANCE_PCT,
 )
 from content.glossary import GLOSSARY_SOURCES, GLOSSARY_TERMS
-from data_loader import load_price_data, load_sector_info
+from data_loader import load_sector_info
+from models import PortfolioAnalysisRequest
 from portfolio_config import normalize_weights_to_100, parse_portfolio_config
 from portfolio_state import rebalance_after_weight_change, redistribute_equal_locked
 from report_exporter import (
@@ -52,6 +33,10 @@ from report_exporter import (
     prices_to_csv,
     returns_to_csv,
     summary_to_csv,
+)
+from services.portfolio_analysis import (
+    PortfolioAnalysisError,
+    run_portfolio_analysis,
 )
 from theme import CHART_PALETTE
 from ticker_utils import normalize_ticker
@@ -979,122 +964,74 @@ if run:
 
 
 # ---------------------------------------------------------------------------
-# Step 1 — Data loading
+# Portfolio analysis pipeline
 # ---------------------------------------------------------------------------
-with st.spinner("Step 1 / 3  —  Downloading market data from Yahoo Finance..."):
-    prices, failed = load_price_data(tickers, start_date, end_date)
+analysis_request = PortfolioAnalysisRequest(
+    tickers=tickers,
+    weights_pct=weights_pct,
+    start_date=start_date,
+    end_date=end_date,
+    initial_investment=initial_investment,
+    risk_free_rate=risk_free_rate,
+    mc_horizon_days=mc_horizon_days,
+    mc_simulations=mc_simulations,
+    mc_method_label=mc_method_label,
+)
 
-if prices.empty or prices.shape[1] < 2:
-    # Critical failure — clear loader so the user can actually see the
-    # error and (if present) the failed-tickers dialog.
+try:
+    with st.spinner(
+        "Running portfolio analysis: market data, risk metrics, "
+        "optimization and Monte Carlo..."
+    ):
+        analysis_result = run_portfolio_analysis(analysis_request)
+except PortfolioAnalysisError as exc:
     loading_overlay.empty()
-    if failed and not st.session_state.get("fp_dialog_suppressed", False):
-        _failed_key = "|".join(sorted(failed.keys()))
+    if exc.failed and not st.session_state.get("fp_dialog_suppressed", False):
+        _failed_key = "|".join(sorted(exc.failed.keys()))
         if st.session_state.get("fp_failed_dismissed_key") != _failed_key:
-            show_failed_tickers_dialog(failed, _failed_key)
-    st.error(
-        "Not enough valid price data. Try different tickers or a wider date range."
-    )
+            show_failed_tickers_dialog(exc.failed, _failed_key)
+    st.error(str(exc))
     st.stop()
 
-# Second-line check: even with a long calendar window, some tickers might
-# share too few trading days (e.g. recent IPO).
-if len(prices) < MIN_TRADING_ROWS:
-    st.error(
-        f"Only **{len(prices)} trading days** of overlapping data available "
-        f"across all selected tickers (need at least {MIN_TRADING_ROWS}). "
-        "Widen the date range or pick assets with more shared history."
-    )
-    st.stop()
-
-# Renormalize weights over the surviving tickers
-weights = pd.Series(weights_pct, dtype=float) / 100.0
-weights = weights.reindex(prices.columns).dropna()
-if weights.sum() == 0:
-    st.error("All weights for valid tickers are zero.")
-    st.stop()
-weights = weights / weights.sum()
-
-
-# ---------------------------------------------------------------------------
-# Step 2 — Portfolio analytics
-# ---------------------------------------------------------------------------
-with st.spinner("Step 2 / 4  —  Computing portfolio analytics..."):
-    returns = daily_returns(prices)
-    norm = normalize_prices(prices)
-    asset_stats = summary_per_asset(returns)
-    port_metrics = annualized_portfolio_metrics(returns, weights)
-    sharpe = sharpe_ratio(port_metrics["return"], port_metrics["volatility"], risk_free_rate)
-    corr = correlation_matrix(returns)
-    port_value = portfolio_value_series(prices, weights, initial_investment)
-    portfolio_cagr = cagr(port_value)
-    equal_weights = pd.Series(1.0 / len(prices.columns), index=prices.columns)
-    eq_metrics = annualized_portfolio_metrics(returns, equal_weights)
-    eq_sharpe = sharpe_ratio(eq_metrics["return"], eq_metrics["volatility"], risk_free_rate)
-    eq_value = portfolio_value_series(prices, equal_weights, initial_investment)
-
-    # Advanced risk metrics
-    port_daily_ret = portfolio_daily_returns(returns, weights)
-    dd_info = max_drawdown(port_value)
-    sortino = sortino_ratio(port_daily_ret, risk_free_rate)
-
-# ---------------------------------------------------------------------------
-# Step 3 — Optimization & market benchmark
-# ---------------------------------------------------------------------------
-with st.spinner("Step 3 / 4  —  Optimizing portfolio (efficient frontier)..."):
-    max_sharpe_weights = optimize_max_sharpe(returns, risk_free_rate)
-    min_var_weights = optimize_min_variance(returns)
-    max_sharpe_metrics = annualized_portfolio_metrics(returns, max_sharpe_weights)
-    min_var_metrics = annualized_portfolio_metrics(returns, min_var_weights)
-    max_sharpe_value = sharpe_ratio(
-        max_sharpe_metrics["return"], max_sharpe_metrics["volatility"], risk_free_rate
-    )
-    min_var_sharpe = sharpe_ratio(
-        min_var_metrics["return"], min_var_metrics["volatility"], risk_free_rate
-    )
-    frontier_df = efficient_frontier(returns, n_points=40)
-
-    # Load S&P 500 benchmark
-    market_prices, market_failed = load_price_data(["^GSPC"], start_date, end_date)
-    if not market_prices.empty:
-        market_returns = daily_returns(market_prices).iloc[:, 0]
-        market_value = portfolio_value_series(
-            market_prices, pd.Series([1.0], index=market_prices.columns),
-            initial_investment,
-        )
-        capm = compute_beta_alpha(port_daily_ret, market_returns, risk_free_rate)
-        market_loaded = True
-    else:
-        market_returns = pd.Series(dtype=float)
-        market_value = pd.Series(dtype=float)
-        capm = {"beta": 0.0, "alpha": 0.0, "r_squared": 0.0, "correlation": 0.0}
-        market_loaded = False
-
-
-# ---------------------------------------------------------------------------
-# Step 4 — Monte Carlo simulation
-# ---------------------------------------------------------------------------
-with st.spinner(
-    f"Step 4 / 4  —  Running {mc_simulations:,} Monte Carlo paths "
-    f"over {mc_horizon_days} trading days..."
-):
-    mc_method = (
-        "bootstrap"
-        if mc_method_label == "Historical bootstrap"
-        else "parametric"
-    )
-    sims = monte_carlo_simulation(
-        returns=returns,
-        weights=weights,
-        initial_value=initial_investment,
-        horizon_days=mc_horizon_days,
-        n_simulations=mc_simulations,
-        method=mc_method,
-    )
-
-final_mc = sims.iloc[-1]
-mc_p5, mc_p50, mc_p95 = np.percentile(final_mc, [5, 50, 95])
-var_95 = initial_investment - mc_p5
+prices = analysis_result.prices
+failed = analysis_result.failed
+weights = analysis_result.weights
+returns = analysis_result.returns
+norm = analysis_result.normalized_prices
+asset_stats = analysis_result.asset_stats
+port_metrics = analysis_result.portfolio_metrics
+sharpe = analysis_result.portfolio_sharpe
+corr = analysis_result.correlation
+port_value = analysis_result.portfolio_value
+portfolio_cagr = analysis_result.portfolio_cagr
+equal_weights = analysis_result.equal_weights
+eq_metrics = analysis_result.equal_weight_metrics
+eq_sharpe = analysis_result.equal_weight_sharpe
+eq_value = analysis_result.equal_weight_value
+port_daily_ret = analysis_result.portfolio_daily_returns
+dd_info = analysis_result.drawdown_info
+sortino = analysis_result.sortino
+max_sharpe_weights = analysis_result.max_sharpe_weights
+min_var_weights = analysis_result.min_variance_weights
+max_sharpe_metrics = analysis_result.max_sharpe_metrics
+min_var_metrics = analysis_result.min_variance_metrics
+max_sharpe_value = analysis_result.max_sharpe_ratio
+min_var_sharpe = analysis_result.min_variance_sharpe
+frontier_df = analysis_result.efficient_frontier
+market_returns = analysis_result.market_returns
+market_value = analysis_result.market_value
+capm = analysis_result.capm
+market_loaded = analysis_result.market_loaded
+sims = analysis_result.simulations
+mc_p5 = analysis_result.mc_p5
+mc_p50 = analysis_result.mc_p50
+mc_p95 = analysis_result.mc_p95
+var_95 = analysis_result.var_95
+mc_method = (
+    "bootstrap"
+    if mc_method_label == "Historical bootstrap"
+    else "parametric"
+)
 
 # ---------------------------------------------------------------------------
 # Header (with context)
@@ -1144,10 +1081,10 @@ with _reset_col_r:
 # ---------------------------------------------------------------------------
 (
     tab_overview, tab_returns, tab_corr, tab_mc, tab_opt, tab_bench,
-    tab_export, tab_glossary,
+    tab_export, tab_assumptions, tab_glossary,
 ) = st.tabs([
     "Overview", "Returns & Risk", "Correlation", "Monte Carlo",
-    "Optimization", "Benchmark", "Export", "Glossary",
+    "Optimization", "Benchmark", "Export", "Assumptions", "Glossary",
 ])
 
 
@@ -1903,7 +1840,81 @@ with tab_export:
 
 
 # ============================================================
-# Tab 8: Glossary
+# Tab 8: Assumptions
+# ============================================================
+with tab_assumptions:
+    st.subheader("Model assumptions")
+    st.markdown(
+        '<p style="color:#64748b; font-size:14px; margin-bottom:20px;">'
+        "FinPort is an educational analytics tool. These assumptions explain "
+        "how to interpret the results responsibly."
+        "</p>",
+        unsafe_allow_html=True,
+    )
+
+    a1, a2 = st.columns(2)
+    with a1:
+        st.markdown(
+            metric_card(
+                "Market Data",
+                "Yahoo Finance",
+                "Adjusted close prices are downloaded from Yahoo Finance via "
+                "yfinance. Missing, delisted or incorrect symbols are excluded.",
+                "External data source",
+                "#60a5fa",
+                "#94a3b8",
+            ),
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            metric_card(
+                "Portfolio Method",
+                "Buy-and-hold",
+                "Portfolio value assumes the initial weights are set on the "
+                "first day and then held. Transaction costs, taxes and slippage "
+                "are not included.",
+                "No periodic rebalancing",
+                "#f59e0b",
+                "#94a3b8",
+            ),
+            unsafe_allow_html=True,
+        )
+    with a2:
+        st.markdown(
+            metric_card(
+                "Annualization",
+                "252 days",
+                "Daily return and volatility metrics are annualized using the "
+                "standard convention of 252 trading days per year.",
+                "Finance convention",
+                "#10b981",
+                "#94a3b8",
+            ),
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            metric_card(
+                "Monte Carlo",
+                mc_method_label,
+                "Parametric simulation uses historical mean and covariance; "
+                "bootstrap simulation resamples historical daily return rows. "
+                "Both assume the selected period is representative.",
+                "Scenario model, not prediction",
+                "#a78bfa",
+                "#94a3b8",
+            ),
+            unsafe_allow_html=True,
+        )
+
+    st.info(
+        "Educational disclaimer: FinPort does not provide investment advice. "
+        "Past performance, optimization output and Monte Carlo scenarios do not "
+        "guarantee future results."
+    )
+
+
+# ============================================================
+# Tab 9: Glossary
 # ============================================================
 with tab_glossary:
     st.subheader("Financial terms glossary")
