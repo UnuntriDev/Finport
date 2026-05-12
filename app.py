@@ -42,8 +42,10 @@ from constants import (
     MIN_TRADING_ROWS,
     WEIGHT_TOLERANCE_PCT,
 )
+from content.glossary import GLOSSARY_SOURCES, GLOSSARY_TERMS
 from data_loader import load_price_data, load_sector_info
 from portfolio_config import normalize_weights_to_100, parse_portfolio_config
+from portfolio_state import rebalance_after_weight_change, redistribute_equal_locked
 from report_exporter import (
     build_excel_workbook,
     build_pdf,
@@ -53,6 +55,9 @@ from report_exporter import (
 )
 from theme import CHART_PALETTE
 from ticker_utils import normalize_ticker
+from ui.dialogs import show_failed_tickers_dialog
+from ui.loader import MONEY_LOADER_HTML
+from ui.logo import logo_img
 from ui_components import (
     export_item_label,
     export_section_header,
@@ -225,161 +230,6 @@ st.markdown(
 
 
 # ---------------------------------------------------------------------------
-# Logo (inline SVG — transparent background, no external file needed)
-# ---------------------------------------------------------------------------
-# IMPORTANT: every HTML string passed to st.markdown must have NO leading
-# whitespace on any line, otherwise Streamlit's markdown parser treats lines
-# indented by 4+ spaces as code blocks and shows them as text.
-
-def _logo_icon_svg(size: int) -> str:
-    """Square icon: blue gradient tile with white rising chart and gold accent."""
-    return (
-        f'<svg width="{size}" height="{size}" viewBox="0 0 48 48" fill="none" '
-        'xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0; display:block;">'
-        '<defs>'
-        '<linearGradient id="fpBg" x1="0" y1="0" x2="48" y2="48" '
-        'gradientUnits="userSpaceOnUse">'
-        '<stop offset="0%" stop-color="#60a5fa"/>'
-        '<stop offset="55%" stop-color="#2563eb"/>'
-        '<stop offset="100%" stop-color="#1e3a8a"/>'
-        '</linearGradient>'
-        '<linearGradient id="fpGloss" x1="0" y1="0" x2="0" y2="48" '
-        'gradientUnits="userSpaceOnUse">'
-        '<stop offset="0%" stop-color="#ffffff" stop-opacity="0.18"/>'
-        '<stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>'
-        '</linearGradient>'
-        '</defs>'
-        # background tile
-        '<rect width="48" height="48" rx="12" fill="url(#fpBg)"/>'
-        '<rect width="48" height="48" rx="12" fill="url(#fpGloss)"/>'
-        # subtle bar chart in the background
-        '<rect x="10" y="30" width="3.5" height="8" rx="1" '
-        'fill="#ffffff" opacity="0.22"/>'
-        '<rect x="16.5" y="25" width="3.5" height="13" rx="1" '
-        'fill="#ffffff" opacity="0.22"/>'
-        '<rect x="23" y="20" width="3.5" height="18" rx="1" '
-        'fill="#ffffff" opacity="0.22"/>'
-        # rising chart line
-        '<polyline points="9,34 17,26 24,29 36,14" stroke="#ffffff" '
-        'stroke-width="2.8" fill="none" stroke-linecap="round" '
-        'stroke-linejoin="round"/>'
-        # arrow head at the end
-        '<polyline points="30,14 36,14 36,20" stroke="#ffffff" '
-        'stroke-width="2.8" fill="none" stroke-linecap="round" '
-        'stroke-linejoin="round"/>'
-        # gold accent dot (financial highlight)
-        '<circle cx="36" cy="14" r="3.2" fill="#fbbf24" '
-        'stroke="#ffffff" stroke-width="1.2"/>'
-        '</svg>'
-    )
-
-
-def logo_img(height: int = 44, with_text: bool = True) -> str:
-    """Return HTML for the FinPort logo (icon + wordmark)."""
-    icon = _logo_icon_svg(height)
-    if not with_text:
-        return icon
-    text_size = max(int(height * 0.72), 16)
-    return (
-        '<div style="display:flex; align-items:center; gap:12px;">'
-        + icon
-        + f'<div style="font-size:{text_size}px; font-weight:900; '
-        'color:#f8fafc; letter-spacing:-1.5px; line-height:1; '
-        'font-family:-apple-system,Segoe UI,sans-serif;">'
-        'Fin<span style="color:#3b82f6;">Port</span>'
-        '</div>'
-        '</div>'
-    )
-
-
-# ---------------------------------------------------------------------------
-# Money-themed loading overlay (shown during analysis)
-# ---------------------------------------------------------------------------
-MONEY_LOADER_HTML = (
-    '<style>'
-    '@keyframes fp-bounce{'
-    '0%,100%{transform:translateY(0) rotate(-6deg) scale(1);}'
-    '50%{transform:translateY(-30px) rotate(8deg) scale(1.08);}'
-    '}'
-    '@keyframes fp-fall{'
-    '0%{transform:translateY(-15vh) rotate(0deg);opacity:0;}'
-    '8%{opacity:0.55;}'
-    '92%{opacity:0.55;}'
-    '100%{transform:translateY(115vh) rotate(720deg);opacity:0;}'
-    '}'
-    '@keyframes fp-pulse-dot{'
-    '0%,100%{opacity:0.35;transform:scale(0.7);}'
-    '50%{opacity:1;transform:scale(1.3);}'
-    '}'
-    '@keyframes fp-glow{'
-    '0%,100%{filter:drop-shadow(0 0 24px rgba(59,130,246,0.6));}'
-    '50%{filter:drop-shadow(0 0 50px rgba(251,191,36,0.85));}'
-    '}'
-    '@keyframes fp-ring-spin{'
-    'from{transform:rotate(0deg);}'
-    'to{transform:rotate(360deg);}'
-    '}'
-    '.fp-overlay{'
-    'position:fixed;top:0;left:0;width:100vw;height:100vh;'
-    'background:radial-gradient(circle at center,rgba(15,23,42,0.94) 0%,'
-    'rgba(2,6,23,0.99) 80%);'
-    '-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);'
-    'z-index:99999;display:flex;flex-direction:column;'
-    'align-items:center;justify-content:center;'
-    'overflow:hidden;pointer-events:none;'
-    '}'
-    '.fp-drop{position:absolute;top:0;font-size:30px;'
-    'animation:fp-fall 5s linear infinite;will-change:transform;}'
-    '.fp-ring{'
-    'position:absolute;width:220px;height:220px;border-radius:50%;'
-    'border:2px dashed rgba(59,130,246,0.35);'
-    'animation:fp-ring-spin 18s linear infinite;'
-    '}'
-    '.fp-ring-2{width:300px;height:300px;'
-    'border:1px dashed rgba(251,191,36,0.25);'
-    'animation:fp-ring-spin 26s linear infinite reverse;}'
-    '.fp-center{font-size:96px;'
-    'animation:fp-bounce 1.6s ease-in-out infinite,'
-    'fp-glow 2.6s ease-in-out infinite;'
-    'z-index:2;line-height:1;}'
-    '.fp-brand{font-size:34px;font-weight:900;color:#f8fafc;'
-    'letter-spacing:-1.5px;margin-top:22px;z-index:2;}'
-    '.fp-brand span{color:#3b82f6;}'
-    '.fp-text{color:#94a3b8;font-size:14px;font-weight:500;'
-    'margin-top:10px;z-index:2;letter-spacing:0.02em;}'
-    '.fp-dots{display:flex;gap:8px;margin-top:18px;z-index:2;}'
-    '.fp-dots span{width:9px;height:9px;border-radius:50%;'
-    'background:#3b82f6;animation:fp-pulse-dot 1.4s ease-in-out infinite;}'
-    '.fp-dots span:nth-child(2){animation-delay:0.2s;background:#fbbf24;}'
-    '.fp-dots span:nth-child(3){animation-delay:0.4s;background:#10b981;}'
-    '</style>'
-    '<div class="fp-overlay">'
-    # Falling money rain (varied positions, delays, emoji types)
-    '<span class="fp-drop" style="left:3%;animation-delay:0s;">💵</span>'
-    '<span class="fp-drop" style="left:10%;animation-delay:1.3s;font-size:24px;">💰</span>'
-    '<span class="fp-drop" style="left:17%;animation-delay:2.6s;">💸</span>'
-    '<span class="fp-drop" style="left:24%;animation-delay:0.7s;font-size:36px;">💴</span>'
-    '<span class="fp-drop" style="left:31%;animation-delay:3.1s;">💵</span>'
-    '<span class="fp-drop" style="left:38%;animation-delay:1.9s;font-size:28px;">💶</span>'
-    '<span class="fp-drop" style="left:62%;animation-delay:0.4s;">💷</span>'
-    '<span class="fp-drop" style="left:69%;animation-delay:2.2s;font-size:34px;">💰</span>'
-    '<span class="fp-drop" style="left:76%;animation-delay:3.7s;">💵</span>'
-    '<span class="fp-drop" style="left:83%;animation-delay:0.95s;font-size:26px;">💸</span>'
-    '<span class="fp-drop" style="left:90%;animation-delay:2.8s;">💴</span>'
-    '<span class="fp-drop" style="left:97%;animation-delay:1.5s;font-size:30px;">💵</span>'
-    # Decorative rotating rings
-    '<div class="fp-ring"></div>'
-    '<div class="fp-ring fp-ring-2"></div>'
-    # Center animated icon
-    '<div class="fp-center">💰</div>'
-    '<div class="fp-brand">Fin<span>Port</span></div>'
-    '<div class="fp-text">Analyzing your portfolio...</div>'
-    '<div class="fp-dots"><span></span><span></span><span></span></div>'
-    '</div>'
-)
-
-
-# ---------------------------------------------------------------------------
 # Header banner
 # ---------------------------------------------------------------------------
 def render_header(tickers: list[str] | None = None, period: str = "") -> None:
@@ -437,32 +287,6 @@ def render_header(tickers: list[str] | None = None, period: str = "") -> None:
 # Configuration constants (single source of truth)
 # ---------------------------------------------------------------------------
 
-@st.dialog("⚠️ Some tickers could not be loaded")
-def _show_failed_tickers_dialog(failed: dict[str, str], failed_key: str) -> None:
-    """Render a dismissible dialog for non-loadable tickers."""
-    st.markdown("The following tickers were **excluded from the analysis**:")
-    for ticker, reason in failed.items():
-        safe_ticker = escape(str(ticker))
-        safe_reason = escape(str(reason))
-        st.markdown(
-            f'<div style="background:#1a1a2e; border-left:3px solid '
-            f'#f59e0b; border-radius:0 6px 6px 0; padding:10px 14px; '
-            f'margin:8px 0;">'
-            f'<div style="color:#fbbf24; font-weight:800; '
-            f'font-size:14px; margin-bottom:4px;">{safe_ticker}</div>'
-            f'<div style="color:#cbd5e1; font-size:12px;">{safe_reason}</div>'
-            f"</div>",
-            unsafe_allow_html=True,
-        )
-    st.caption(
-        "Tip: verify the symbol on Yahoo Finance, or widen the date range "
-        "if the asset is recent."
-    )
-    if st.button("Got it", type="primary", use_container_width=True):
-        st.session_state["fp_failed_dismissed_key"] = failed_key
-        st.rerun()
-
-
 def _init_portfolio_state() -> None:
     """Initialise session state for the portfolio configuration widgets.
 
@@ -500,20 +324,10 @@ def _redistribute_equal_locked() -> None:
     tickers = ss.fp_tickers
     if not tickers:
         return
-    locked = [t for t in tickers if ss.fp_locks.get(t, False)]
-    unlocked = [t for t in tickers if not ss.fp_locks.get(t, False)]
-    locked_sum = sum(float(ss.get(f"w_{t}", 0.0)) for t in locked)
-    remaining = max(0.0, 100.0 - locked_sum)
-    if not unlocked:
-        return
-    share = round(remaining / len(unlocked), 2)
-    for t in unlocked:
-        ss[f"w_{t}"] = share
-    # Compensate rounding on the last unlocked ticker so total = 100
-    total = locked_sum + share * len(unlocked)
-    diff = round(100.0 - total, 2)
-    if abs(diff) > 0.001:
-        ss[f"w_{unlocked[-1]}"] = round(share + diff, 2)
+    weights = {ticker: float(ss.get(f"w_{ticker}", 0.0)) for ticker in tickers}
+    updated = redistribute_equal_locked(tickers, weights, ss.fp_locks)
+    for ticker, weight in updated.items():
+        ss[f"w_{ticker}"] = weight
 
 
 def _add_ticker_to_state(ticker: str, open_key: str | None = None) -> bool:
@@ -650,49 +464,18 @@ def _cb_weight_changed(ticker: str) -> None:
     if not ss.fp_tickers:
         return
 
-    locked = [t for t in ss.fp_tickers if ss.fp_locks.get(t, False)]
-    locked_sum = sum(float(ss.get(f"w_{t}", 0.0)) for t in locked)
-
-    new_val = float(ss.get(f"w_{ticker}", 0.0))
-    other_unlocked = [
-        t for t in ss.fp_tickers
-        if t != ticker and not ss.fp_locks.get(t, False)
-    ]
-
-    # Cap the just-edited weight if it would push the total over 100
-    max_for_this = max(0.0, 100.0 - locked_sum)
-    if new_val > max_for_this:
-        new_val = round(max_for_this, 2)
-        ss[f"w_{ticker}"] = new_val
-
-    target = round(100.0 - locked_sum - new_val, 2)
-
-    if not other_unlocked:
-        return
-
-    current_sum = sum(float(ss.get(f"w_{t}", 0.0)) for t in other_unlocked)
-
-    if current_sum > 0.001:
-        # Proportional rescaling
-        scale = target / current_sum
-        for t in other_unlocked:
-            ss[f"w_{t}"] = round(float(ss[f"w_{t}"]) * scale, 2)
-    else:
-        # All zero — distribute equally
-        share = round(target / len(other_unlocked), 2)
-        for t in other_unlocked:
-            ss[f"w_{t}"] = share
-
-    # Fix rounding error by absorbing it on the last "other unlocked" ticker
-    total = (
-        locked_sum
-        + float(ss.get(f"w_{ticker}", 0.0))
-        + sum(float(ss.get(f"w_{t}", 0.0)) for t in other_unlocked)
+    weights = {
+        ticker_symbol: float(ss.get(f"w_{ticker_symbol}", 0.0))
+        for ticker_symbol in ss.fp_tickers
+    }
+    updated = rebalance_after_weight_change(
+        ss.fp_tickers,
+        weights,
+        ss.fp_locks,
+        ticker,
     )
-    diff = round(100.0 - total, 2)
-    if abs(diff) > 0.001 and other_unlocked:
-        last = other_unlocked[-1]
-        ss[f"w_{last}"] = round(float(ss[f"w_{last}"]) + diff, 2)
+    for ticker_symbol, weight in updated.items():
+        ss[f"w_{ticker_symbol}"] = weight
 
 
 def _allocation_donut(tickers: list[str], weights: dict[str, float]) -> go.Figure:
@@ -1208,7 +991,7 @@ if prices.empty or prices.shape[1] < 2:
     if failed and not st.session_state.get("fp_dialog_suppressed", False):
         _failed_key = "|".join(sorted(failed.keys()))
         if st.session_state.get("fp_failed_dismissed_key") != _failed_key:
-            _show_failed_tickers_dialog(failed, _failed_key)
+            show_failed_tickers_dialog(failed, _failed_key)
     st.error(
         "Not enough valid price data. Try different tickers or a wider date range."
     )
@@ -1330,7 +1113,7 @@ loading_overlay.empty()
 if failed and not st.session_state.get("fp_dialog_suppressed", False):
     _failed_key = "|".join(sorted(failed.keys()))
     if st.session_state.get("fp_failed_dismissed_key") != _failed_key:
-        _show_failed_tickers_dialog(failed, _failed_key)
+        show_failed_tickers_dialog(failed, _failed_key)
 
 period_str = f"{start_date.strftime('%b %Y')} – {end_date.strftime('%b %Y')}"
 render_header(tickers=list(prices.columns), period=period_str)
@@ -2131,158 +1914,13 @@ with tab_glossary:
         unsafe_allow_html=True,
     )
 
-    glossary_data = [
-        (
-            "📈 Annualized Return",
-            "Average daily return × 252 trading days. Represents the expected "
-            "yearly gain of an asset or portfolio assuming continuation of "
-            "historical patterns. Formula: μ_daily × 252.",
-        ),
-        (
-            "⚡ Annualized Volatility",
-            "Standard deviation of daily returns × √252. Measures the dispersion "
-            "of returns around the mean — the higher the value, the more "
-            "uncertain (risky) the future outcome. Formula: σ_daily × √252.",
-        ),
-        (
-            "🎯 Sharpe Ratio (Sharpe, 1966)",
-            "Risk-adjusted return: (Return − Risk-free rate) / Volatility. "
-            "Tells you how much excess return you earn per unit of risk taken. "
-            "> 1.0 is considered good, > 2.0 excellent. Below 0.5 means low "
-            "compensation for risk.",
-        ),
-        (
-            "🎯 Sortino Ratio (Sortino & Price, 1994)",
-            "Like Sharpe ratio, but only penalizes **downside** volatility "
-            "(returns below 0). More realistic for investors — upward swings "
-            "are not 'risk'. Formula: (Return − Rf) / Downside deviation.",
-        ),
-        (
-            "📉 Maximum Drawdown",
-            "The largest peak-to-trough decline in portfolio value over a "
-            "given period. Critical risk metric — shows the worst loss an "
-            "investor would have actually experienced. Often paired with "
-            "drawdown **duration** (time underwater) and **recovery time**.",
-        ),
-        (
-            "📐 Beta (β)",
-            "Sensitivity to market moves (CAPM). β = 1 means the asset moves "
-            "1-to-1 with the market. β > 1 amplifies market moves (aggressive). "
-            "β < 1 dampens them (defensive). β < 0 means inverse correlation. "
-            "Calculated as: Cov(asset, market) / Var(market).",
-        ),
-        (
-            "✨ Alpha (α)",
-            "CAPM alpha — annualized excess return that cannot be explained "
-            "by beta exposure to the market. Positive α means the portfolio "
-            "beats the risk-adjusted market expectation. Considered the "
-            "holy grail of active management; persistently positive α is rare.",
-        ),
-        (
-            "🔗 Correlation",
-            "Pearson correlation coefficient (−1 to +1) measuring co-movement "
-            "between two return series. +1 = perfect lockstep (no diversification), "
-            "0 = independent, −1 = perfect hedge. Low/negative correlations "
-            "between portfolio components reduce overall risk.",
-        ),
-        (
-            "📊 R² (R-squared)",
-            "Proportion of portfolio variance explained by market moves. High "
-            "R² (> 0.7) means the portfolio behaves mostly like the market — "
-            "diversification benefit vs market is limited.",
-        ),
-        (
-            "🛡 Value at Risk (VaR)",
-            "Maximum expected loss over a given time horizon at a given "
-            "confidence level. VaR 95% = the loss that won't be exceeded in "
-            "95% of scenarios. Widely used in banking but criticized for "
-            "ignoring 'tail' losses beyond the threshold.",
-        ),
-        (
-            "🛡 Conditional VaR (CVaR / Expected Shortfall)",
-            "Average loss in the **worst** (1 − α)% of cases — e.g., the "
-            "average of the worst 5% Monte Carlo outcomes. CVaR is preferred "
-            "over VaR under Basel III banking regulations because it accounts "
-            "for tail risk.",
-        ),
-        (
-            "🎲 Monte Carlo Simulation",
-            "Generates thousands of possible future paths by repeatedly sampling "
-            "from a statistical distribution (here: multivariate normal with "
-            "historical mean and covariance). Cross-asset correlations are "
-            "preserved via Cholesky decomposition. The distribution of final "
-            "outcomes shows the range of plausible scenarios.",
-        ),
-        (
-            "📐 Efficient Frontier (Markowitz, 1952)",
-            "The set of optimal portfolios offering the highest expected return "
-            "for each level of risk (volatility). Foundation of Modern Portfolio "
-            "Theory. Any portfolio below the frontier is sub-optimal: there "
-            "exists another portfolio with either more return for the same risk "
-            "or less risk for the same return.",
-        ),
-        (
-            "🎯 Max Sharpe Portfolio (Tangency Portfolio)",
-            "The portfolio on the efficient frontier with the highest "
-            "Sharpe ratio. In CAPM theory, this is the **tangency portfolio** — "
-            "where the Capital Market Line touches the efficient frontier. "
-            "Theoretically the optimal risky portfolio for any investor.",
-        ),
-        (
-            "🛡 Minimum Variance Portfolio",
-            "The leftmost point of the efficient frontier — the portfolio with "
-            "the lowest possible volatility regardless of expected return. "
-            "Useful for risk-averse investors prioritizing capital preservation.",
-        ),
-        (
-            "📐 CAPM (Sharpe, 1964)",
-            "Capital Asset Pricing Model: an asset's expected return equals "
-            "Rf + β · (Rm − Rf), where Rf is risk-free rate, Rm is market "
-            "return. Foundation of modern asset pricing — Sharpe won the "
-            "Nobel Prize in 1990 for this work.",
-        ),
-        (
-            "🏛 Risk-free Rate",
-            "Theoretical return of a zero-risk investment, used as a baseline "
-            "in Sharpe ratio, CAPM, and other models. Typically approximated "
-            "by short-term government bond yields (e.g. 3-month T-bills in "
-            "the U.S.).",
-        ),
-        (
-            "⚖ Portfolio Weights",
-            "Proportion of total capital allocated to each asset. Must sum to "
-            "1 (or 100%). In a buy-and-hold portfolio, weights drift over "
-            "time as assets perform differently — periodic **rebalancing** "
-            "restores the target allocation.",
-        ),
-        (
-            "🔄 Buy-and-Hold",
-            "Investment strategy where assets are bought once at the start "
-            "and held without modifications. Implicit in FinPort's portfolio "
-            "value calculation. Alternative: periodic rebalancing back to "
-            "target weights.",
-        ),
-        (
-            "📊 252 Trading Days",
-            "The conventional number of trading days per year (≈ 365 minus "
-            "weekends and major holidays). Used to annualize daily statistics: "
-            "annual_return = daily_return × 252, "
-            "annual_volatility = daily_volatility × √252.",
-        ),
-    ]
-
     # Render glossary with 2 columns of expanders
     g_col1, g_col2 = st.columns(2)
-    for i, (term, definition) in enumerate(glossary_data):
+    for i, (term, definition) in enumerate(GLOSSARY_TERMS):
         target_col = g_col1 if i % 2 == 0 else g_col2
         with target_col:
             with st.expander(term):
                 st.markdown(definition)
 
     st.divider()
-    st.caption(
-        "**Sources:** Markowitz (1952) 'Portfolio Selection', Sharpe (1964) 'Capital "
-        "Asset Prices', Sortino & Price (1994) 'Performance Measurement in a "
-        "Downside Risk Framework', Basel Committee on Banking Supervision "
-        "(2019) 'Minimum Capital Requirements for Market Risk'."
-    )
+    st.caption(GLOSSARY_SOURCES)
