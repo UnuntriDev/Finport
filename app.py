@@ -107,7 +107,7 @@ def _render_reset_button() -> None:
     if not clicked:
         return
     for key in list(st.session_state.keys()):
-        if key.startswith(_RESET_PREFIXES):
+        if isinstance(key, str) and key.startswith(_RESET_PREFIXES):
             del st.session_state[key]
     st.session_state[_DIALOG_SUPPRESSED_KEY] = True
     st.rerun()

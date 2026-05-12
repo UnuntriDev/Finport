@@ -14,17 +14,17 @@ from models import (
 
 
 def _make_request(**overrides) -> PortfolioAnalysisRequest:
-    defaults = dict(
-        tickers=["AAPL", "MSFT"],
-        weights_pct={"AAPL": 50.0, "MSFT": 50.0},
-        start_date=date(2023, 1, 1),
-        end_date=date(2023, 12, 31),
-        initial_investment=10_000.0,
-        risk_free_rate=0.02,
-        mc_horizon_days=252,
-        mc_simulations=1000,
-        mc_method_label=MonteCarloMethod.PARAMETRIC.value,
-    )
+    defaults: dict = {
+        "tickers": ["AAPL", "MSFT"],
+        "weights_pct": {"AAPL": 50.0, "MSFT": 50.0},
+        "start_date": date(2023, 1, 1),
+        "end_date": date(2023, 12, 31),
+        "initial_investment": 10_000.0,
+        "risk_free_rate": 0.02,
+        "mc_horizon_days": 252,
+        "mc_simulations": 1000,
+        "mc_method_label": MonteCarloMethod.PARAMETRIC.value,
+    }
     defaults.update(overrides)
     return PortfolioAnalysisRequest(**defaults)
 

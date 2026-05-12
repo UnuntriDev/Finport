@@ -27,5 +27,9 @@ jobs:
       - name: Ruff lint
         run: ruff check .
 
+      - name: Mypy (advisory)
+        run: mypy . --ignore-missing-imports
+        continue-on-error: true
+
       - name: Pytest
         run: pytest -q

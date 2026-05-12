@@ -1,3 +1,5 @@
+from datetime import date
+
 import pandas as pd
 
 import data_loader
@@ -19,7 +21,7 @@ def test_load_price_data_rejects_invalid_symbol_without_calling_yfinance(monkeyp
 
     monkeypatch.setattr(data_loader.yf, "download", fake_download)
 
-    prices, failed = data_loader.load_price_data(["<script>"], "2024-01-01", "2024-02-01")
+    prices, failed = data_loader.load_price_data(["<script>"], date(2024, 1, 1), date(2024, 2, 1))
 
     assert prices.empty
     assert failed == {"<script>": "Invalid ticker symbol format."}
@@ -34,7 +36,7 @@ def test_load_price_data_handles_empty_yfinance_response(monkeypatch):
 
     monkeypatch.setattr(data_loader.yf, "download", fake_download)
 
-    prices, failed = data_loader.load_price_data(["AAPL"], "2024-01-01", "2024-02-01")
+    prices, failed = data_loader.load_price_data(["AAPL"], date(2024, 1, 1), date(2024, 2, 1))
 
     assert prices.empty
     assert "AAPL" in failed
@@ -49,7 +51,7 @@ def test_load_price_data_extracts_close_column(monkeypatch):
 
     monkeypatch.setattr(data_loader.yf, "download", fake_download)
 
-    prices, failed = data_loader.load_price_data(["aapl"], "2024-01-01", "2024-02-01")
+    prices, failed = data_loader.load_price_data(["aapl"], date(2024, 1, 1), date(2024, 2, 1))
 
     assert failed == {}
     assert list(prices.columns) == ["AAPL"]
