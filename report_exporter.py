@@ -10,7 +10,7 @@ from datetime import date
 
 import pandas as pd
 from fpdf import FPDF
-
+from fpdf.enums import XPos, YPos
 
 # ---------------------------------------------------------------------------
 # PDF builder
@@ -27,13 +27,19 @@ class _FinPortPDF(FPDF):
 
         self.set_font("Helvetica", "B", 20)
         self.set_text_color(15, 23, 42)
-        self.cell(18, 10, "Fin", border=False, ln=False)
+        self.cell(18, 10, "Fin", border=False, new_x=XPos.RIGHT, new_y=YPos.TOP)
         self.set_text_color(37, 99, 235)
-        self.cell(0, 10, "Port", border=False, ln=True)
+        self.cell(0, 10, "Port", border=False, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
         self.set_font("Helvetica", "", 9)
         self.set_text_color(100, 116, 139)
-        self.cell(0, 5, "Portfolio Analysis & Risk Assessment Platform", ln=True)
+        self.cell(
+            0,
+            5,
+            "Portfolio Analysis & Risk Assessment Platform",
+            new_x=XPos.LMARGIN,
+            new_y=YPos.NEXT,
+        )
 
         self.set_draw_color(226, 232, 240)
         self.set_line_width(0.3)
@@ -73,7 +79,7 @@ class _FinPortPDF(FPDF):
         self.set_font("Helvetica", "B", 11)
         self.set_fill_color(241, 245, 249)
         self.set_text_color(30, 58, 138)
-        self.cell(0, 8, f"  {title}", ln=True, fill=True)
+        self.cell(0, 8, f"  {title}", new_x=XPos.LMARGIN, new_y=YPos.NEXT, fill=True)
         self.ln(2)
 
     def kv_row(self, label: str, value: str) -> None:
@@ -82,7 +88,7 @@ class _FinPortPDF(FPDF):
         self.cell(75, 7, label)
         self.set_font("Helvetica", "B", 10)
         self.set_text_color(15, 23, 42)
-        self.cell(0, 7, value, ln=True)
+        self.cell(0, 7, value, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
     def data_table(self, headers: list[str], rows: list[list[str]]) -> None:
         col_w = 185.0 / len(headers)
@@ -123,10 +129,12 @@ def build_pdf(
     initial_investment: float,
     asset_stats: pd.DataFrame,
     port_value: pd.Series,
+    cagr_value: float | None = None,
     mc_p5: float | None = None,
     mc_p50: float | None = None,
     mc_p95: float | None = None,
     mc_horizon_days: int | None = None,
+    mc_method: str | None = None,
     max_dd: float | None = None,
     sortino: float | None = None,
     beta: float | None = None,
@@ -145,7 +153,14 @@ def build_pdf(
     # Report date
     pdf.set_font("Helvetica", "", 9)
     pdf.set_text_color(148, 163, 184)
-    pdf.cell(0, 5, f"Generated: {date.today().strftime('%B %d, %Y')}", align="R", ln=True)
+    pdf.cell(
+        0,
+        5,
+        f"Generated: {date.today().strftime('%B %d, %Y')}",
+        align="R",
+        new_x=XPos.LMARGIN,
+        new_y=YPos.NEXT,
+    )
     pdf.ln(2)
 
     # --- Portfolio Configuration ---
@@ -164,6 +179,8 @@ def build_pdf(
     total_ret = (final_val / initial_investment - 1) * 100
 
     pdf.kv_row("Annualized return", f"{ann_ret * 100:.2f}%")
+    if cagr_value is not None:
+        pdf.kv_row("CAGR (realized)", f"{cagr_value * 100:.2f}%")
     pdf.kv_row("Annualized volatility (risk)", f"{ann_vol * 100:.2f}%")
     pdf.kv_row("Sharpe ratio", f"{sharpe:.2f}")
     if sortino is not None:
@@ -262,6 +279,8 @@ def build_pdf(
     if mc_p50 is not None:
         pdf.section_title("Monte Carlo Simulation Summary")
         horizon_label = f"{mc_horizon_days} trading days" if mc_horizon_days else "N/A"
+        if mc_method:
+            pdf.kv_row("Simulation method", mc_method)
         pdf.kv_row("Simulation horizon", horizon_label)
         pdf.kv_row("Median outcome (50th pct.)", f"${mc_p50:,.2f}")
         pdf.kv_row("Pessimistic outcome (5th pct.)", f"${mc_p5:,.2f}")
@@ -312,6 +331,7 @@ def build_excel_workbook(
     port_value: pd.Series,
     port_metrics: dict[str, float],
     sharpe: float,
+    cagr_value: float | None = None,
     sortino: float | None = None,
     max_dd: float | None = None,
 ) -> bytes:
@@ -324,6 +344,10 @@ def build_excel_workbook(
         # --- Summary sheet ----------------------------------------------
         summary_rows = [
             ("Annualized return", f"{port_metrics['return'] * 100:.2f}%"),
+            (
+                "CAGR (realized)",
+                f"{cagr_value * 100:.2f}%" if cagr_value is not None else "N/A",
+            ),
             ("Annualized volatility", f"{port_metrics['volatility'] * 100:.2f}%"),
             ("Sharpe ratio", f"{sharpe:.2f}"),
         ]

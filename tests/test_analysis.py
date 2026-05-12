@@ -1,8 +1,10 @@
 import numpy as np
 import pandas as pd
+import pytest
 
 from analysis import (
     annualized_portfolio_metrics,
+    cagr,
     daily_returns,
     max_drawdown,
     monte_carlo_simulation,
@@ -93,6 +95,47 @@ def test_monte_carlo_output_shape_and_initial_row():
 
     assert paths.shape == (21, 50)
     assert (paths.iloc[0] == 10_000).all()
+
+
+def test_bootstrap_monte_carlo_output_shape_and_initial_row():
+    returns = daily_returns(_sample_prices())
+    weights = pd.Series({"AAPL": 0.4, "MSFT": 0.3, "META": 0.3})
+
+    paths = monte_carlo_simulation(
+        returns=returns,
+        weights=weights,
+        initial_value=10_000,
+        horizon_days=20,
+        n_simulations=50,
+        method="bootstrap",
+    )
+
+    assert paths.shape == (21, 50)
+    assert (paths.iloc[0] == 10_000).all()
+
+
+def test_monte_carlo_rejects_unknown_method():
+    returns = daily_returns(_sample_prices())
+    weights = pd.Series({"AAPL": 0.4, "MSFT": 0.3, "META": 0.3})
+
+    with pytest.raises(ValueError, match="method"):
+        monte_carlo_simulation(
+            returns=returns,
+            weights=weights,
+            initial_value=10_000,
+            horizon_days=20,
+            n_simulations=50,
+            method="bad-method",
+        )
+
+
+def test_cagr_for_doubled_portfolio_over_one_trading_year():
+    values = pd.Series(
+        np.linspace(100.0, 200.0, 253),
+        index=pd.date_range("2024-01-01", periods=253, freq="B"),
+    )
+
+    assert np.isclose(cagr(values), 1.0)
 
 
 def test_risk_ratios_handle_zero_volatility_inputs():

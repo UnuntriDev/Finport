@@ -7,8 +7,8 @@ versions cannot silently drop tickers due to MultiIndex restructuring.
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable
 from datetime import date
-from typing import Iterable
 
 import pandas as pd
 import streamlit as st

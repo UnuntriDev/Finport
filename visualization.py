@@ -5,11 +5,9 @@ render it with `st.plotly_chart`.
 """
 from __future__ import annotations
 
-import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-
 
 _LAYOUT = dict(
     template="plotly_dark",

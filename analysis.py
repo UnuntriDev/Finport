@@ -90,24 +90,59 @@ def portfolio_value_series(
     return value
 
 
+def cagr(value_series: pd.Series, trading_days: int = TRADING_DAYS) -> float:
+    """Compound annual growth rate for a portfolio value series."""
+    clean = value_series.dropna()
+    if len(clean) < 2:
+        return 0.0
+    start = float(clean.iloc[0])
+    end = float(clean.iloc[-1])
+    if start <= 0 or end <= 0:
+        return 0.0
+    years = (len(clean) - 1) / trading_days
+    if years <= 0:
+        return 0.0
+    return float((end / start) ** (1.0 / years) - 1.0)
+
+
 def monte_carlo_simulation(
     returns: pd.DataFrame,
     weights: pd.Series,
     initial_value: float,
     horizon_days: int,
     n_simulations: int,
+    method: str = "parametric",
     seed: int | None = 42,
 ) -> pd.DataFrame:
     """Monte Carlo simulation of portfolio value over ``horizon_days``.
 
-    Daily returns are drawn from a multivariate normal distribution with the
-    historical mean vector and covariance matrix. Cross-asset correlations are
-    preserved via Cholesky decomposition.
+    ``method="parametric"`` draws daily returns from a multivariate normal
+    distribution with historical mean/covariance. ``method="bootstrap"`` samples
+    historical rows with replacement, preserving the empirical joint returns.
 
     Returns a DataFrame of shape (horizon_days + 1, n_simulations) where each
     column is one simulated portfolio value path starting at ``initial_value``.
     """
-    weights = weights.reindex(returns.columns).fillna(0.0).values
+    weights_array = weights.reindex(returns.columns).fillna(0.0).values
+    rng = np.random.default_rng(seed)
+
+    if method not in {"parametric", "bootstrap"}:
+        raise ValueError("method must be either 'parametric' or 'bootstrap'")
+
+    if method == "bootstrap":
+        sampled_idx = rng.integers(
+            0,
+            len(returns),
+            size=(horizon_days, n_simulations),
+        )
+        sampled = returns.to_numpy()[sampled_idx]
+        portfolio_daily = sampled @ weights_array
+        return _compound_simulated_returns(
+            portfolio_daily,
+            initial_value,
+            n_simulations,
+        )
+
     mean_daily = returns.mean().values
     cov_daily = returns.cov().values
 
@@ -121,18 +156,28 @@ def monte_carlo_simulation(
         cov_daily = (eigvecs * eigvals) @ eigvecs.T
         chol = np.linalg.cholesky(cov_daily)
 
-    rng = np.random.default_rng(seed)
     n_assets = len(mean_daily)
 
     # Shape: (horizon_days, n_simulations, n_assets)
     z = rng.standard_normal(size=(horizon_days, n_simulations, n_assets))
     correlated = z @ chol.T + mean_daily  # broadcast mean across axes
-    portfolio_daily = correlated @ weights  # (horizon_days, n_simulations)
+    portfolio_daily = correlated @ weights_array  # (horizon_days, n_simulations)
 
-    # Compound to a value path that starts at initial_value
+    return _compound_simulated_returns(
+        portfolio_daily,
+        initial_value,
+        n_simulations,
+    )
+
+
+def _compound_simulated_returns(
+    portfolio_daily: np.ndarray,
+    initial_value: float,
+    n_simulations: int,
+) -> pd.DataFrame:
+    """Compound simulated daily portfolio returns into value paths."""
     growth = np.cumprod(1.0 + portfolio_daily, axis=0)
     paths = np.vstack([np.ones((1, n_simulations)), growth]) * initial_value
-
     return pd.DataFrame(paths, columns=[f"sim_{i}" for i in range(n_simulations)])
 
 

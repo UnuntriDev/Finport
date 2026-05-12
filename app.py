@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 import logging
 import time
-from datetime import date, timedelta
+from datetime import date
 from html import escape
 
 import numpy as np
@@ -18,6 +18,7 @@ import streamlit as st
 
 from analysis import (
     annualized_portfolio_metrics,
+    cagr,
     compute_beta_alpha,
     correlation_matrix,
     daily_returns,
@@ -51,6 +52,13 @@ from report_exporter import (
     summary_to_csv,
 )
 from theme import CHART_PALETTE
+from ticker_utils import normalize_ticker
+from ui_components import (
+    export_item_label,
+    export_section_header,
+    metric_card,
+    sidebar_section_header,
+)
 from visualization import (
     plot_correlation_heatmap,
     plot_drawdown,
@@ -62,13 +70,6 @@ from visualization import (
     plot_price_history,
     plot_sector_breakdown,
     plot_weights_comparison,
-)
-from ticker_utils import normalize_ticker
-from ui_components import (
-    export_item_label,
-    export_section_header,
-    metric_card,
-    sidebar_section_header,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -1034,6 +1035,15 @@ with st.sidebar:
         key="fp_mc_sims_input",
         help="More simulations = more accurate distribution, but slower.",
     )
+    mc_method_label = st.selectbox(
+        "Simulation method",
+        ["Parametric normal", "Historical bootstrap"],
+        key="fp_mc_method_input",
+        help=(
+            "Parametric normal uses historical mean/covariance. Historical "
+            "bootstrap samples actual past return days with replacement."
+        ),
+    )
     st.warning(
         "Monte Carlo is a probabilistic simulation based on historical return "
         "statistics. It is not a price forecast.",
@@ -1234,6 +1244,7 @@ with st.spinner("Step 2 / 4  —  Computing portfolio analytics..."):
     sharpe = sharpe_ratio(port_metrics["return"], port_metrics["volatility"], risk_free_rate)
     corr = correlation_matrix(returns)
     port_value = portfolio_value_series(prices, weights, initial_investment)
+    portfolio_cagr = cagr(port_value)
     equal_weights = pd.Series(1.0 / len(prices.columns), index=prices.columns)
     eq_metrics = annualized_portfolio_metrics(returns, equal_weights)
     eq_sharpe = sharpe_ratio(eq_metrics["return"], eq_metrics["volatility"], risk_free_rate)
@@ -1284,12 +1295,18 @@ with st.spinner(
     f"Step 4 / 4  —  Running {mc_simulations:,} Monte Carlo paths "
     f"over {mc_horizon_days} trading days..."
 ):
+    mc_method = (
+        "bootstrap"
+        if mc_method_label == "Historical bootstrap"
+        else "parametric"
+    )
     sims = monte_carlo_simulation(
         returns=returns,
         weights=weights,
         initial_value=initial_investment,
         horizon_days=mc_horizon_days,
         n_simulations=mc_simulations,
+        method=mc_method,
     )
 
 final_mc = sims.iloc[-1]
@@ -1380,7 +1397,7 @@ with tab_overview:
     pnl_color = "#10b981" if pnl_pct >= 0 else "#ef4444"
     pnl_arrow = "▲" if pnl_pct >= 0 else "▼"
 
-    c1, c2, c3, c4 = st.columns(4)
+    c1, c2, c3, c4, c5 = st.columns(5)
     with c1:
         st.markdown(
             metric_card(
@@ -1393,6 +1410,20 @@ with tab_overview:
             unsafe_allow_html=True,
         )
     with c2:
+        cagr_color = "#10b981" if portfolio_cagr >= 0 else "#ef4444"
+        st.markdown(
+            metric_card(
+                "CAGR",
+                f"{portfolio_cagr * 100:.2f}%",
+                "Compound Annual Growth Rate based on actual portfolio value "
+                "growth over the selected period.",
+                "Compounded realized growth",
+                cagr_color,
+                cagr_color,
+            ),
+            unsafe_allow_html=True,
+        )
+    with c3:
         st.markdown(
             metric_card(
                 "Annualized Volatility",
@@ -1404,7 +1435,7 @@ with tab_overview:
             ),
             unsafe_allow_html=True,
         )
-    with c3:
+    with c4:
         st.markdown(
             metric_card(
                 "Sharpe Ratio",
@@ -1415,7 +1446,7 @@ with tab_overview:
             ),
             unsafe_allow_html=True,
         )
-    with c4:
+    with c5:
         st.markdown(
             metric_card(
                 "Portfolio Value",
@@ -1679,12 +1710,19 @@ with tab_mc:
 
     st.markdown("<div style='margin-bottom:20px;'></div>", unsafe_allow_html=True)
     st.plotly_chart(plot_monte_carlo(sims), use_container_width=True)
-    st.caption(
-        "Each path is drawn from a **multivariate normal distribution** with the historical "
-        "mean vector and covariance matrix. Cross-asset correlations are preserved via "
-        "**Cholesky decomposition**. This assumes future returns follow the same statistical "
-        "properties as historical ones — which is a simplification."
-    )
+    if mc_method == "bootstrap":
+        st.caption(
+            "Method: **Historical bootstrap**. Each simulated day samples one "
+            "historical return row with replacement, preserving empirical joint "
+            "asset moves. It avoids a normality assumption but still assumes "
+            "historical return patterns are relevant."
+        )
+    else:
+        st.caption(
+            "Method: **Parametric normal**. Each path is drawn from a multivariate "
+            "normal distribution using historical mean and covariance. Cross-asset "
+            "correlations are preserved via **Cholesky decomposition**."
+        )
 
 
 # ============================================================
@@ -1957,10 +1995,12 @@ with tab_export:
                             initial_investment=initial_investment,
                             asset_stats=asset_stats,
                             port_value=port_value,
+                            cagr_value=portfolio_cagr,
                             mc_p5=float(mc_p5),
                             mc_p50=float(mc_p50),
                             mc_p95=float(mc_p95),
                             mc_horizon_days=mc_horizon_days,
+                            mc_method=mc_method_label,
                             max_dd=dd_info["max_drawdown"],
                             sortino=sortino,
                             beta=capm["beta"] if market_loaded else None,
@@ -2004,6 +2044,7 @@ with tab_export:
                         port_value=port_value,
                         port_metrics=port_metrics,
                         sharpe=sharpe,
+                        cagr_value=portfolio_cagr,
                         sortino=sortino,
                         max_dd=dd_info["max_drawdown"],
                     )
