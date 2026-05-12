@@ -81,6 +81,8 @@ run Monte Carlo simulations, generate optimization results, and export reports.
 │   ├── dialogs.py                 # Streamlit dialogs
 │   ├── loader.py                  # Money-themed loading overlay
 │   └── logo.py                    # Inline SVG FinPort logo
+├── views/
+│   └── dashboard_tabs.py          # Dashboard tab rendering layer
 ├── examples/
 │   └── sample_portfolio.json      # Example saved portfolio configuration
 ├── tests/
