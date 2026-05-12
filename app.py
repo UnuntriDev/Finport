@@ -42,6 +42,7 @@ from constants import (
     WEIGHT_TOLERANCE_PCT,
 )
 from data_loader import load_price_data, load_sector_info
+from portfolio_config import normalize_weights_to_100, parse_portfolio_config
 from report_exporter import (
     build_excel_workbook,
     build_pdf,
@@ -49,6 +50,7 @@ from report_exporter import (
     returns_to_csv,
     summary_to_csv,
 )
+from theme import CHART_PALETTE
 from visualization import (
     plot_correlation_heatmap,
     plot_drawdown,
@@ -62,6 +64,12 @@ from visualization import (
     plot_weights_comparison,
 )
 from ticker_utils import normalize_ticker
+from ui_components import (
+    export_item_label,
+    export_section_header,
+    metric_card,
+    sidebar_section_header,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -425,48 +433,6 @@ def render_header(tickers: list[str] | None = None, period: str = "") -> None:
 
 
 # ---------------------------------------------------------------------------
-# Metric card with tooltip
-# ---------------------------------------------------------------------------
-def metric_card(
-    label: str,
-    value: str,
-    tooltip: str,
-    sub_text: str = "",
-    value_color: str = "#f1f5f9",
-    sub_color: str = "#64748b",
-) -> str:
-    """Return an HTML metric card with a hoverable ? tooltip icon.
-
-    The HTML is built as a flat (no-indent) string so Streamlit's markdown
-    parser does not treat it as a code block.
-    """
-    sub_html = (
-        f'<div style="font-size:12px; color:{sub_color}; margin-top:6px; '
-        f'font-weight:500;">{sub_text}</div>'
-        if sub_text else ""
-    )
-    return (
-        '<div style="background:linear-gradient(145deg,#0f172a,#1e293b);'
-        'border:1px solid #1e3a5f; border-radius:10px; padding:18px 20px; '
-        'min-height:108px;">'
-        '<div style="font-size:10px; color:#64748b; font-weight:700; '
-        'text-transform:uppercase; letter-spacing:0.07em; display:flex; '
-        'align-items:center; gap:6px; margin-bottom:10px;">'
-        f'{label}'
-        f'<span title="{tooltip}" style="display:inline-flex; '
-        'align-items:center; justify-content:center; width:14px; height:14px; '
-        'border-radius:50%; background:#1e3a5f; color:#60a5fa; font-size:8px; '
-        'font-weight:800; cursor:help; border:1px solid #2563eb; '
-        'flex-shrink:0;">?</span>'
-        '</div>'
-        f'<div style="font-size:26px; font-weight:800; color:{value_color}; '
-        f'line-height:1.1; letter-spacing:-0.02em;">{value}</div>'
-        f'{sub_html}'
-        '</div>'
-    )
-
-
-# ---------------------------------------------------------------------------
 # Configuration constants (single source of truth)
 # ---------------------------------------------------------------------------
 
@@ -628,85 +594,26 @@ def _cb_load_config() -> None:
     if file is None:
         return
     try:
-        raw = file.read()
-        config = json.loads(raw)
-    except (json.JSONDecodeError, TypeError, UnicodeDecodeError) as exc:
-        ss["fp_config_error"] = f"Invalid JSON file: {exc}"
+        config = parse_portfolio_config(file.read())
+    except ValueError as exc:
+        ss["fp_config_error"] = str(exc)
         return
-
-    # Validate structure
-    tickers = config.get("tickers", [])
-    weights = config.get("weights", {})
-    locks = config.get("locks", {})
-
-    if not isinstance(tickers, list) or not tickers:
-        ss["fp_config_error"] = "Config has no tickers."
-        return
-    if not isinstance(weights, dict) or not isinstance(locks, dict):
-        ss["fp_config_error"] = "Config weights/locks must be objects."
-        return
-
-    valid_tickers: list[str] = []
-    invalid_tickers: list[str] = []
-    for raw_ticker in tickers:
-        ticker = normalize_ticker(raw_ticker)
-        if not ticker:
-            invalid_tickers.append(str(raw_ticker))
-            continue
-        if ticker not in valid_tickers:
-            valid_tickers.append(ticker)
-        if len(valid_tickers) >= MAX_TICKERS:
-            break
-
-    if invalid_tickers:
-        ss["fp_config_error"] = (
-            "Config contains invalid ticker symbols: "
-            + ", ".join(invalid_tickers[:5])
-        )
-        return
-    if not valid_tickers:
-        ss["fp_config_error"] = "Config has no valid tickers."
-        return
-
-    try:
-        loaded_start = (
-            date.fromisoformat(config["start"]) if config.get("start") else None
-        )
-        loaded_end = (
-            date.fromisoformat(config["end"]) if config.get("end") else None
-        )
-    except (TypeError, ValueError):
-        ss["fp_config_error"] = "Config contains invalid ISO date values."
-        return
-    if loaded_start is not None and loaded_end is not None:
-        if loaded_start >= loaded_end:
-            ss["fp_config_error"] = "Config start date must be earlier than end date."
-            return
 
     # Clear any previous per-ticker weight keys
     for old_t in list(ss.fp_tickers):
         ss.pop(f"w_{old_t}", None)
 
-    ss.fp_tickers = valid_tickers
-    ss.fp_locks = {t: bool(locks.get(t, False)) for t in ss.fp_tickers}
+    ss.fp_tickers = config.tickers
+    ss.fp_locks = dict(config.locks)
 
+    normalized_weights = normalize_weights_to_100(config.weights)
     for t in ss.fp_tickers:
-        try:
-            ss[f"w_{t}"] = float(weights.get(t, 0.0))
-        except (TypeError, ValueError):
-            ss[f"w_{t}"] = 0.0
+        ss[f"w_{t}"] = normalized_weights.get(t, 0.0)
 
-    if loaded_start is not None:
-        ss.fp_start_input = loaded_start
-    if loaded_end is not None:
-        ss.fp_end_input = loaded_end
-
-    # Ensure total weight = 100% (gentle clean-up)
-    total = sum(float(ss.get(f"w_{t}", 0.0)) for t in ss.fp_tickers)
-    if total > 0 and abs(total - 100.0) > 0.01:
-        scale = 100.0 / total
-        for t in ss.fp_tickers:
-            ss[f"w_{t}"] = round(float(ss[f"w_{t}"]) * scale, 2)
+    if config.start is not None:
+        ss.fp_start_input = config.start
+    if config.end is not None:
+        ss.fp_end_input = config.end
 
     ss["fp_config_loaded_msg"] = (
         f"Loaded {len(ss.fp_tickers)} tickers from config."
@@ -789,11 +696,6 @@ def _cb_weight_changed(ticker: str) -> None:
 
 def _allocation_donut(tickers: list[str], weights: dict[str, float]) -> go.Figure:
     """Small donut chart visualising portfolio allocation."""
-    palette = [
-        "#3b82f6", "#fbbf24", "#10b981", "#a855f7", "#ef4444",
-        "#06b6d4", "#f97316", "#84cc16", "#ec4899", "#8b5cf6",
-        "#14b8a6", "#eab308",
-    ]
     values = [weights.get(t, 0.0) for t in tickers]
     fig = go.Figure(
         data=[
@@ -802,7 +704,7 @@ def _allocation_donut(tickers: list[str], weights: dict[str, float]) -> go.Figur
                 values=values,
                 hole=0.65,
                 marker=dict(
-                    colors=palette[: len(tickers)],
+                    colors=CHART_PALETTE[: len(tickers)],
                     line=dict(color="#0a0f1e", width=2),
                 ),
                 textinfo="label+percent",
@@ -847,14 +749,7 @@ with st.sidebar:
 
     # ---- TICKERS (chips) -------------------------------------------------
     st.markdown(
-        '<div style="display:flex; align-items:center; gap:8px; '
-        'margin:4px 0 10px 0; padding:7px 10px; '
-        'background:linear-gradient(90deg,#0f2040 0%,#0a0f1e 100%); '
-        'border-left:3px solid #3b82f6; border-radius:0 6px 6px 0;">'
-        '<span style="font-size:13px;">◆</span>'
-        '<span style="color:#e2e8f0; font-size:13px; font-weight:800; '
-        'text-transform:uppercase; letter-spacing:0.06em;">Assets</span>'
-        '</div>',
+        sidebar_section_header("◆", "Assets"),
         unsafe_allow_html=True,
     )
 
@@ -1005,14 +900,7 @@ with st.sidebar:
     # ---- DATES with presets ---------------------------------------------
     st.divider()
     st.markdown(
-        '<div style="display:flex; align-items:center; gap:8px; '
-        'margin:4px 0 10px 0; padding:7px 10px; '
-        'background:linear-gradient(90deg,#0f2040 0%,#0a0f1e 100%); '
-        'border-left:3px solid #3b82f6; border-radius:0 6px 6px 0;">'
-        '<span style="font-size:13px;">📅</span>'
-        '<span style="color:#e2e8f0; font-size:13px; font-weight:800; '
-        'text-transform:uppercase; letter-spacing:0.06em;">Period</span>'
-        '</div>',
+        sidebar_section_header("📅", "Period"),
         unsafe_allow_html=True,
     )
 
@@ -1043,14 +931,7 @@ with st.sidebar:
     header_l, header_r = st.columns([3, 2])
     with header_l:
         st.markdown(
-            '<div style="display:flex; align-items:center; gap:8px; '
-            'margin:4px 0 6px 0; padding:7px 10px; '
-            'background:linear-gradient(90deg,#0f2040 0%,#0a0f1e 100%); '
-            'border-left:3px solid #3b82f6; border-radius:0 6px 6px 0;">'
-            '<span style="font-size:13px;">⚖</span>'
-            '<span style="color:#e2e8f0; font-size:11px; font-weight:800; '
-            'text-transform:uppercase; letter-spacing:0.08em;">Weights (%)</span>'
-            '</div>',
+            sidebar_section_header("⚖", "Weights (%)", margin_bottom=6),
             unsafe_allow_html=True,
         )
     with header_r:
@@ -1111,14 +992,7 @@ with st.sidebar:
     # ---- ASSUMPTIONS -----------------------------------------------------
     st.divider()
     st.markdown(
-        '<div style="display:flex; align-items:center; gap:8px; '
-        'margin:4px 0 10px 0; padding:7px 10px; '
-        'background:linear-gradient(90deg,#0f2040 0%,#0a0f1e 100%); '
-        'border-left:3px solid #3b82f6; border-radius:0 6px 6px 0;">'
-        '<span style="font-size:13px;">⚙</span>'
-        '<span style="color:#e2e8f0; font-size:13px; font-weight:800; '
-        'text-transform:uppercase; letter-spacing:0.06em;">Assumptions</span>'
-        '</div>',
+        sidebar_section_header("⚙", "Assumptions"),
         unsafe_allow_html=True,
     )
     risk_free_rate = st.slider(
@@ -1145,14 +1019,7 @@ with st.sidebar:
     # ---- MONTE CARLO -----------------------------------------------------
     st.divider()
     st.markdown(
-        '<div style="display:flex; align-items:center; gap:8px; '
-        'margin:4px 0 10px 0; padding:7px 10px; '
-        'background:linear-gradient(90deg,#0f2040 0%,#0a0f1e 100%); '
-        'border-left:3px solid #3b82f6; border-radius:0 6px 6px 0;">'
-        '<span style="font-size:13px;">🎲</span>'
-        '<span style="color:#e2e8f0; font-size:13px; font-weight:800; '
-        'text-transform:uppercase; letter-spacing:0.06em;">Monte Carlo</span>'
-        '</div>',
+        sidebar_section_header("🎲", "Monte Carlo"),
         unsafe_allow_html=True,
     )
     mc_horizon_days = st.slider(
@@ -1166,6 +1033,11 @@ with st.sidebar:
         100, 5000, 1000, step=100,
         key="fp_mc_sims_input",
         help="More simulations = more accurate distribution, but slower.",
+    )
+    st.warning(
+        "Monte Carlo is a probabilistic simulation based on historical return "
+        "statistics. It is not a price forecast.",
+        icon="⚠️",
     )
 
     # ---- SAVE / LOAD CONFIG ---------------------------------------------
@@ -2060,21 +1932,13 @@ with tab_export:
 
     # ---- Formatted reports (PDF + Excel) --------------------------------
     st.markdown(
-        '<div style="display:flex; align-items:center; gap:10px; '
-        'margin:8px 0 16px 0;">'
-        '<span style="font-size:16px;">📄</span>'
-        '<span style="color:#e2e8f0; font-size:14px; font-weight:700; '
-        'letter-spacing:0.01em;">Formatted reports</span>'
-        '<div style="flex:1; height:1px; background:#1e293b; margin-left:4px;"></div>'
-        '</div>',
+        export_section_header("📄", "Formatted reports"),
         unsafe_allow_html=True,
     )
     rep_a, rep_b = st.columns(2)
     with rep_a:
         st.markdown(
-            '<div style="color:#93c5fd; font-size:12px; font-weight:700; '
-            'text-transform:uppercase; letter-spacing:0.06em; margin-bottom:4px;">'
-            'PDF Report</div>',
+            export_item_label("PDF Report"),
             unsafe_allow_html=True,
         )
         st.caption("Full analysis with metrics, tables and Monte Carlo summary.")
@@ -2125,9 +1989,7 @@ with tab_export:
             st.error(f"PDF export failed: {st.session_state['fp_pdf_error']}")
     with rep_b:
         st.markdown(
-            '<div style="color:#93c5fd; font-size:12px; font-weight:700; '
-            'text-transform:uppercase; letter-spacing:0.06em; margin-bottom:4px;">'
-            'Excel Workbook</div>',
+            export_item_label("Excel Workbook"),
             unsafe_allow_html=True,
         )
         st.caption("One .xlsx with 5 sheets: Summary, Stats, Prices, Returns, Portfolio Value.")
@@ -2165,21 +2027,13 @@ with tab_export:
 
     # ---- Raw data (CSV) -------------------------------------------------
     st.markdown(
-        '<div style="display:flex; align-items:center; gap:10px; '
-        'margin:8px 0 16px 0;">'
-        '<span style="font-size:16px;">📊</span>'
-        '<span style="color:#e2e8f0; font-size:14px; font-weight:700; '
-        'letter-spacing:0.01em;">Raw data</span>'
-        '<div style="flex:1; height:1px; background:#1e293b; margin-left:4px;"></div>'
-        '</div>',
+        export_section_header("📊", "Raw data"),
         unsafe_allow_html=True,
     )
     col_b, col_c, col_d = st.columns(3)
     with col_b:
         st.markdown(
-            '<div style="color:#93c5fd; font-size:12px; font-weight:700; '
-            'text-transform:uppercase; letter-spacing:0.06em; margin-bottom:4px;">'
-            'Price History</div>',
+            export_item_label("Price History"),
             unsafe_allow_html=True,
         )
         st.caption("Adjusted closing prices.")
@@ -2192,9 +2046,7 @@ with tab_export:
         )
     with col_c:
         st.markdown(
-            '<div style="color:#93c5fd; font-size:12px; font-weight:700; '
-            'text-transform:uppercase; letter-spacing:0.06em; margin-bottom:4px;">'
-            'Daily Returns</div>',
+            export_item_label("Daily Returns"),
             unsafe_allow_html=True,
         )
         st.caption("Daily percentage returns per asset.")
@@ -2207,9 +2059,7 @@ with tab_export:
         )
     with col_d:
         st.markdown(
-            '<div style="color:#93c5fd; font-size:12px; font-weight:700; '
-            'text-transform:uppercase; letter-spacing:0.06em; margin-bottom:4px;">'
-            'Asset Summary</div>',
+            export_item_label("Asset Summary"),
             unsafe_allow_html=True,
         )
         st.caption("Annualized return, volatility, weights.")
