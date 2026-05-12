@@ -1766,20 +1766,19 @@ with tab_mc:
         )
     with m2:
         p5_pct = (mc_p5 / initial_investment - 1) * 100
-        with m2:
-            st.markdown(
-                metric_card(
-                    "5th Percentile",
-                    f"${mc_p5:,.0f}",
-                    "Pessimistic outcome: only 5% of simulations end lower than this. "
-                    "Represents a bad-case scenario.",
-                    f"▼ {abs(p5_pct):.1f}% vs. initial" if p5_pct < 0
-                    else f"▲ {p5_pct:.1f}% vs. initial",
-                    "#ef4444" if p5_pct < 0 else "#10b981",
-                    "#ef4444" if p5_pct < 0 else "#10b981",
-                ),
-                unsafe_allow_html=True,
-            )
+        st.markdown(
+            metric_card(
+                "5th Percentile",
+                f"${mc_p5:,.0f}",
+                "Pessimistic outcome: only 5% of simulations end lower than this. "
+                "Represents a bad-case scenario.",
+                f"▼ {abs(p5_pct):.1f}% vs. initial" if p5_pct < 0
+                else f"▲ {p5_pct:.1f}% vs. initial",
+                "#ef4444" if p5_pct < 0 else "#10b981",
+                "#ef4444" if p5_pct < 0 else "#10b981",
+            ),
+            unsafe_allow_html=True,
+        )
     with m3:
         p95_pct = (mc_p95 / initial_investment - 1) * 100
         st.markdown(

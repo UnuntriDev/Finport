@@ -11,6 +11,8 @@ _TICKER_REGEX = re.compile(TICKER_PATTERN)
 
 def normalize_ticker(raw: object) -> str:
     """Return a validated Yahoo Finance ticker or an empty string."""
+    if raw is None:
+        return ""
     ticker = str(raw).strip().upper()
     if not ticker or not _TICKER_REGEX.fullmatch(ticker):
         return ""
