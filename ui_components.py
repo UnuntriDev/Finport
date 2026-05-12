@@ -91,3 +91,33 @@ def muted_paragraph(text: str, margin_bottom: int = 24) -> str:
 
 def vertical_spacer(height: int = 20) -> str:
     return f"<div style='margin-bottom:{height}px;'></div>"
+
+
+# ---------------------------------------------------------------------------
+# Semantic color helpers (sign-based / threshold-based) — keep UI consistent
+# ---------------------------------------------------------------------------
+
+def color_for_sign(value: float, positive_color: str | None = None,
+                   negative_color: str | None = None) -> str:
+    """Return success color for positive values, danger color for negative."""
+    pos = positive_color or COLORS["success"]
+    neg = negative_color or COLORS["danger"]
+    return pos if value >= 0 else neg
+
+
+def arrow_for_sign(value: float) -> str:
+    """Return ▲ for positive values, ▼ for negative."""
+    return "▲" if value >= 0 else "▼"
+
+
+def color_for_threshold(
+    value: float,
+    good_threshold: float,
+    warn_threshold: float,
+) -> str:
+    """Three-tier semantic color: >= good ⇒ success, >= warn ⇒ warning, else danger."""
+    if value >= good_threshold:
+        return COLORS["success"]
+    if value >= warn_threshold:
+        return COLORS["warning"]
+    return COLORS["danger"]

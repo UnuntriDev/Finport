@@ -34,7 +34,7 @@ class SidebarState:
 
 
 # ---------------------------------------------------------------------------
-# Configuration constants (single source of truth)
+# Session state initialisation
 # ---------------------------------------------------------------------------
 
 def _init_portfolio_state() -> None:
@@ -269,8 +269,6 @@ def _allocation_donut(tickers: list[str], weights: dict[str, float]) -> go.Figur
 # ---------------------------------------------------------------------------
 # Sidebar — user inputs
 # ---------------------------------------------------------------------------
-_init_portfolio_state()
-
 
 def render_sidebar(query_demo: bool = False, query_autorun: bool = False) -> SidebarState:
     """Render portfolio configuration sidebar and return selected inputs."""

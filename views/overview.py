@@ -1,3 +1,4 @@
+"""Overview tab — top-level portfolio metrics, charts and sector breakdown."""
 from __future__ import annotations
 
 import pandas as pd
@@ -6,7 +7,14 @@ import streamlit as st
 from data_loader import load_sector_info
 from demo_data import DEMO_SECTORS
 from models import PortfolioAnalysisResult, ViewContext
-from ui_components import metric_card, vertical_spacer
+from theme import COLORS
+from ui_components import (
+    arrow_for_sign,
+    color_for_sign,
+    color_for_threshold,
+    metric_card,
+    vertical_spacer,
+)
 from visualization import (
     plot_drawdown,
     plot_normalized_prices,
@@ -17,44 +25,39 @@ from visualization import (
 
 
 def render_overview_tab(result: PortfolioAnalysisResult, context: ViewContext) -> None:
-    prices = result.prices
-    weights = result.weights
-    norm = result.normalized_prices
-    port_metrics = result.portfolio_metrics
-    sharpe = result.portfolio_sharpe
-    port_value = result.portfolio_value
-    portfolio_cagr = result.portfolio_cagr
-    dd_info = result.drawdown_info
-    sortino = result.sortino
-    capm = result.capm
-    market_loaded = result.market_loaded
-    initial_investment = context.initial_investment
-    risk_free_rate = context.risk_free_rate
-    demo_mode = context.demo_mode
-    # --- Colored metric cards ---
-    ann_ret = port_metrics["return"]
-    ann_vol = port_metrics["volatility"]
-    final_val = float(port_value.iloc[-1])
-    pnl_pct = (final_val / initial_investment - 1) * 100
+    """Render the overview tab: KPI cards, prices, drawdown and sector breakdown."""
+    _render_primary_metrics(result, context)
+    st.markdown(vertical_spacer(20), unsafe_allow_html=True)
+    _render_risk_metrics(result, context)
 
-    ret_color = "#10b981" if ann_ret > 0 else "#ef4444"
-    ret_vs_rf = ann_ret - risk_free_rate
-    ret_arrow = "▲" if ret_vs_rf >= 0 else "▼"
+    st.markdown(vertical_spacer(20), unsafe_allow_html=True)
+    st.divider()
+    _render_charts(result, context)
+    _render_drawdown_details(result)
+    st.divider()
+    _render_sector_breakdown(result, context)
+
+
+# ---------------------------------------------------------------------------
+# Sections
+# ---------------------------------------------------------------------------
+
+def _render_primary_metrics(result: PortfolioAnalysisResult, context: ViewContext) -> None:
+    ann_ret = result.portfolio_metrics["return"]
+    ann_vol = result.portfolio_metrics["volatility"]
+    final_val = float(result.portfolio_value.iloc[-1])
+    initial = context.initial_investment
+    pnl_pct = _safe_pct_change(final_val, initial)
+
+    ret_vs_rf = ann_ret - context.risk_free_rate
     ret_sub = (
-        f"{ret_arrow} {abs(ret_vs_rf * 100):.2f}% "
+        f"{arrow_for_sign(ret_vs_rf)} {abs(ret_vs_rf * 100):.2f}% "
         f"{'above' if ret_vs_rf >= 0 else 'below'} risk-free rate"
     )
-    ret_sub_color = "#10b981" if ret_vs_rf >= 0 else "#ef4444"
 
-    if sharpe >= 1.0:
-        sharpe_color, sharpe_sub = "#10b981", "▲ Excellent  (≥ 1.0)"
-    elif sharpe >= 0.5:
-        sharpe_color, sharpe_sub = "#f59e0b", "◆ Acceptable  (0.5 – 1.0)"
-    else:
-        sharpe_color, sharpe_sub = "#ef4444", "▼ Low  (< 0.5)"
-
-    pnl_color = "#10b981" if pnl_pct >= 0 else "#ef4444"
-    pnl_arrow = "▲" if pnl_pct >= 0 else "▼"
+    sharpe = result.portfolio_sharpe
+    sharpe_color = color_for_threshold(sharpe, 1.0, 0.5)
+    sharpe_sub = _sharpe_sub_label(sharpe)
 
     c1, c2, c3, c4, c5 = st.columns(5)
     with c1:
@@ -64,16 +67,18 @@ def render_overview_tab(result: PortfolioAnalysisResult, context: ViewContext) -
                 f"{ann_ret * 100:.2f}%",
                 "Historical average daily return × 252 trading days. "
                 "Represents the expected yearly gain of the portfolio.",
-                ret_sub, ret_color, ret_sub_color,
+                ret_sub,
+                color_for_sign(ann_ret),
+                color_for_sign(ret_vs_rf),
             ),
             unsafe_allow_html=True,
         )
     with c2:
-        cagr_color = "#10b981" if portfolio_cagr >= 0 else "#ef4444"
+        cagr_color = color_for_sign(result.portfolio_cagr)
         st.markdown(
             metric_card(
                 "CAGR",
-                f"{portfolio_cagr * 100:.2f}%",
+                f"{result.portfolio_cagr * 100:.2f}%",
                 "Compound Annual Growth Rate based on actual portfolio value "
                 "growth over the selected period.",
                 "Compounded realized growth",
@@ -87,10 +92,11 @@ def render_overview_tab(result: PortfolioAnalysisResult, context: ViewContext) -
             metric_card(
                 "Annualized Volatility",
                 f"{ann_vol * 100:.2f}%",
-                "Standard deviation of daily returns × √252. "
-                "Measures total portfolio risk — higher = more uncertain outcomes.",
+                "Standard deviation of daily returns × √252. Measures total "
+                "portfolio risk — higher = more uncertain outcomes.",
                 "Risk measure (std. deviation)",
-                "#60a5fa", "#475569",
+                "#60a5fa",
+                "#475569",
             ),
             unsafe_allow_html=True,
         )
@@ -99,60 +105,66 @@ def render_overview_tab(result: PortfolioAnalysisResult, context: ViewContext) -
             metric_card(
                 "Sharpe Ratio",
                 f"{sharpe:.2f}",
-                "Risk-adjusted return = (Portfolio return − Risk-free rate) / Volatility. "
-                "Measures return earned per unit of risk. > 1.0 is considered good.",
-                sharpe_sub, sharpe_color, sharpe_color,
+                "Risk-adjusted return = (Portfolio return − Risk-free rate) / "
+                "Volatility. > 1.0 is considered good.",
+                sharpe_sub,
+                sharpe_color,
+                sharpe_color,
             ),
             unsafe_allow_html=True,
         )
     with c5:
+        pnl_color = color_for_sign(pnl_pct)
         st.markdown(
             metric_card(
                 "Portfolio Value",
                 f"${final_val:,.0f}",
-                f"Final value of a ${initial_investment:,.0f} initial investment "
-                "held as a buy-and-hold portfolio over the selected period.",
-                f"{pnl_arrow} {abs(pnl_pct):.2f}% total return",
-                pnl_color, pnl_color,
+                f"Final value of a ${initial:,.0f} initial investment held as "
+                "a buy-and-hold portfolio over the selected period.",
+                f"{arrow_for_sign(pnl_pct)} {abs(pnl_pct):.2f}% total return",
+                pnl_color,
+                pnl_color,
             ),
             unsafe_allow_html=True,
         )
 
-    st.markdown(vertical_spacer(20), unsafe_allow_html=True)
 
-    # Second row of metrics: drawdown + sortino
+def _render_risk_metrics(result: PortfolioAnalysisResult, context: ViewContext) -> None:
+    dd_info = result.drawdown_info
     max_dd_pct = dd_info["max_drawdown"] * 100
-    dd_color = "#ef4444" if max_dd_pct < -20 else "#f59e0b" if max_dd_pct < -10 else "#10b981"
-    sortino_color = "#10b981" if sortino >= 1.0 else "#f59e0b" if sortino >= 0.5 else "#ef4444"
+    dd_color = color_for_threshold(max_dd_pct, -10.0, -20.0)
 
-    if sortino >= 1.0:
-        sortino_sub = "▲ Excellent  (≥ 1.0)"
-    elif sortino >= 0.5:
-        sortino_sub = "◆ Acceptable  (0.5 – 1.0)"
-    else:
-        sortino_sub = "▼ Low  (< 0.5)"
+    sortino = result.sortino
+    sortino_color = color_for_threshold(sortino, 1.0, 0.5)
+    sortino_sub = _sortino_sub_label(sortino)
 
     dd_days_text = (
         f"{dd_info['drawdown_days']} days peak → trough"
         if dd_info["drawdown_days"] else "—"
     )
-    recovery_text = (
-        f"Recovered after {dd_info['recovery_days']} days"
-        if dd_info["recovery_days"] is not None
-        else "Not yet recovered"
-    )
 
-    if market_loaded:
-        beta_color = "#60a5fa"
-        beta_sub = "Defensive" if capm["beta"] < 0.8 else "Aggressive" if capm["beta"] > 1.2 else "Neutral"
-        alpha_color = "#10b981" if capm["alpha"] > 0 else "#ef4444"
-        alpha_arrow = "▲" if capm["alpha"] >= 0 else "▼"
-        alpha_sub = f"{alpha_arrow} {'Beats' if capm['alpha'] >= 0 else 'Trails'} S&P 500 (CAPM)"
-    else:
-        beta_color = "#475569"
-        beta_sub = "S&P 500 data unavailable"
-        alpha_color = "#475569"
-        alpha_sub = "—"
+    capm = result.capm
+    market_loaded = result.market_loaded
+    beta_value = f"{capm['beta']:.2f}" if market_loaded else "—"
+    beta_sub = (
+        "S&P 500 data unavailable"
+        if not market_loaded
+        else "Defensive" if capm["beta"] < 0.8
+        else "Aggressive" if capm["beta"] > 1.2
+        else "Neutral"
+    )
+    beta_color = "#60a5fa" if market_loaded else COLORS["muted"]
+
+    alpha_value = f"{capm['alpha'] * 100:+.2f}%" if market_loaded else "—"
+    alpha_color = (
+        color_for_sign(capm["alpha"]) if market_loaded else COLORS["muted"]
+    )
+    alpha_sub = (
+        "—"
+        if not market_loaded
+        else f"{arrow_for_sign(capm['alpha'])} "
+        f"{'Beats' if capm['alpha'] >= 0 else 'Trails'} S&P 500 (CAPM)"
+    )
 
     d1, d2, d3, d4 = st.columns(4)
     with d1:
@@ -162,7 +174,9 @@ def render_overview_tab(result: PortfolioAnalysisResult, context: ViewContext) -
                 f"{max_dd_pct:.2f}%",
                 "The largest peak-to-trough decline. Crucial risk metric — "
                 "shows the worst loss an investor would have experienced.",
-                dd_days_text, dd_color, dd_color,
+                dd_days_text,
+                dd_color,
+                dd_color,
             ),
             unsafe_allow_html=True,
         )
@@ -173,7 +187,9 @@ def render_overview_tab(result: PortfolioAnalysisResult, context: ViewContext) -
                 f"{sortino:.2f}",
                 "Like Sharpe ratio, but only penalizes downside volatility. "
                 "More realistic for investors — upward volatility is not risk.",
-                sortino_sub, sortino_color, sortino_color,
+                sortino_sub,
+                sortino_color,
+                sortino_color,
             ),
             unsafe_allow_html=True,
         )
@@ -181,10 +197,12 @@ def render_overview_tab(result: PortfolioAnalysisResult, context: ViewContext) -
         st.markdown(
             metric_card(
                 "Beta vs S&P 500",
-                f"{capm['beta']:.2f}" if market_loaded else "—",
+                beta_value,
                 "Sensitivity to market moves. β = 1 means moves with market; "
                 "β > 1 more volatile; β < 1 defensive; β < 0 inverse.",
-                beta_sub, beta_color, "#475569" if not market_loaded else beta_color,
+                beta_sub,
+                beta_color,
+                beta_color if market_loaded else COLORS["muted"],
             ),
             unsafe_allow_html=True,
         )
@@ -192,27 +210,35 @@ def render_overview_tab(result: PortfolioAnalysisResult, context: ViewContext) -
         st.markdown(
             metric_card(
                 "Alpha (CAPM)",
-                f"{capm['alpha'] * 100:+.2f}%" if market_loaded else "—",
+                alpha_value,
                 "Annualized excess return not explained by market exposure "
                 "(beta). Positive alpha = portfolio beats CAPM expectation.",
-                alpha_sub, alpha_color, alpha_color,
+                alpha_sub,
+                alpha_color,
+                alpha_color,
             ),
             unsafe_allow_html=True,
         )
 
-    st.markdown(vertical_spacer(20), unsafe_allow_html=True)
-    st.divider()
 
+def _render_charts(result: PortfolioAnalysisResult, context: ViewContext) -> None:
     st.subheader("Adjusted closing prices")
-    st.plotly_chart(plot_price_history(prices), use_container_width=True)
+    st.plotly_chart(plot_price_history(result.prices), use_container_width=True)
 
     st.subheader("Normalized performance  (start = 100)")
-    st.plotly_chart(plot_normalized_prices(norm), use_container_width=True)
+    st.plotly_chart(
+        plot_normalized_prices(result.normalized_prices),
+        use_container_width=True,
+    )
 
     st.subheader("Portfolio value over time")
-    st.plotly_chart(plot_portfolio_value(port_value, initial_investment), use_container_width=True)
+    st.plotly_chart(
+        plot_portfolio_value(result.portfolio_value, context.initial_investment),
+        use_container_width=True,
+    )
 
     st.subheader("Drawdown analysis")
+    dd_info = result.drawdown_info
     st.plotly_chart(
         plot_drawdown(
             dd_info["drawdown_series"],
@@ -221,32 +247,32 @@ def render_overview_tab(result: PortfolioAnalysisResult, context: ViewContext) -
         ),
         use_container_width=True,
     )
-    dd_cols = st.columns(3)
-    dd_cols[0].markdown(
-        f"**Peak date:** {dd_info['peak_date'].date()}"
-    )
-    dd_cols[1].markdown(
-        f"**Trough date:** {dd_info['trough_date'].date()}"
-    )
-    dd_cols[2].markdown(f"**Status:** {recovery_text}")
 
-    # ---- Sector Breakdown ------------------------------------------------
-    st.divider()
+
+def _render_drawdown_details(result: PortfolioAnalysisResult) -> None:
+    dd_info = result.drawdown_info
+    recovery_text = (
+        f"Recovered after {dd_info['recovery_days']} days"
+        if dd_info["recovery_days"] is not None
+        else "Not yet recovered"
+    )
+    cols = st.columns(3)
+    cols[0].markdown(f"**Peak date:** {dd_info['peak_date'].date()}")
+    cols[1].markdown(f"**Trough date:** {dd_info['trough_date'].date()}")
+    cols[2].markdown(f"**Status:** {recovery_text}")
+
+
+def _render_sector_breakdown(
+    result: PortfolioAnalysisResult,
+    context: ViewContext,
+) -> None:
     st.subheader("Sector allocation")
-    if demo_mode:
-        sector_info = {
-            ticker: DEMO_SECTORS.get(ticker, "Others")
-            for ticker in prices.columns
-        }
-    else:
-        with st.spinner("Looking up sector classifications..."):
-            sector_info = load_sector_info(list(prices.columns))
+    sector_info = _resolve_sector_info(result.prices.columns, context.demo_mode)
 
-    # Aggregate weights by sector
     sector_weights: dict[str, float] = {}
-    for ticker, weight_share in weights.items():
+    for ticker, share in result.weights.items():
         sec = sector_info.get(ticker, "Others")
-        sector_weights[sec] = sector_weights.get(sec, 0.0) + float(weight_share) * 100.0
+        sector_weights[sec] = sector_weights.get(sec, 0.0) + float(share) * 100.0
 
     sec_col1, sec_col2 = st.columns([1, 1])
     with sec_col1:
@@ -255,23 +281,51 @@ def render_overview_tab(result: PortfolioAnalysisResult, context: ViewContext) -
             use_container_width=True,
         )
     with sec_col2:
-        st.markdown(
-            '<div style="margin-top:24px;"></div>', unsafe_allow_html=True,
-        )
+        st.markdown(vertical_spacer(24), unsafe_allow_html=True)
         sector_table = pd.DataFrame(
             [
-                {"Sector": sec, "Weight": f"{w:.2f}%"}
-                for sec, w in sorted(
-                    sector_weights.items(), key=lambda x: -x[1]
+                {"Sector": sec, "Weight": f"{weight:.2f}%"}
+                for sec, weight in sorted(
+                    sector_weights.items(), key=lambda item: -item[1]
                 )
             ]
         )
         st.dataframe(sector_table, use_container_width=True, hide_index=True)
         st.caption(
-            "Sector data fetched from Yahoo Finance. "
-            "Higher concentration in one sector = higher idiosyncratic risk."
+            "Sector data fetched from Yahoo Finance. Higher concentration in "
+            "one sector = higher idiosyncratic risk."
         )
 
 
-    # ============================================================
-    # Tab 2: Returns & Risk
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _safe_pct_change(final_value: float, initial_value: float) -> float:
+    """Return percentage change (0.0 when initial is non-positive)."""
+    if initial_value <= 0:
+        return 0.0
+    return (final_value / initial_value - 1.0) * 100.0
+
+
+def _sharpe_sub_label(sharpe: float) -> str:
+    if sharpe >= 1.0:
+        return "▲ Excellent  (≥ 1.0)"
+    if sharpe >= 0.5:
+        return "◆ Acceptable  (0.5 – 1.0)"
+    return "▼ Low  (< 0.5)"
+
+
+def _sortino_sub_label(sortino: float) -> str:
+    if sortino >= 1.0:
+        return "▲ Excellent  (≥ 1.0)"
+    if sortino >= 0.5:
+        return "◆ Acceptable  (0.5 – 1.0)"
+    return "▼ Low  (< 0.5)"
+
+
+def _resolve_sector_info(tickers: pd.Index, demo_mode: bool) -> dict[str, str]:
+    if demo_mode:
+        return {ticker: DEMO_SECTORS.get(ticker, "Others") for ticker in tickers}
+    with st.spinner("Looking up sector classifications..."):
+        return load_sector_info(list(tickers))

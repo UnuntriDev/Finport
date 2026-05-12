@@ -9,6 +9,8 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 
+from theme import CHART_PALETTE, COLORS
+
 _LAYOUT = dict(
     template="plotly_dark",
     margin=dict(l=10, r=10, t=40, b=10),
@@ -16,11 +18,24 @@ _LAYOUT = dict(
     hovermode="x unified",
 )
 
+_CHART_PORTFOLIO_LINE = "#4f9eff"
+_CHART_PORTFOLIO_FILL = "rgba(79,158,255,0.15)"
+_CHART_EQUAL_WEIGHT_BAR = "#a371f7"
+_CHART_MC_PATH = "rgba(120,160,220,0.25)"
+_CHART_MC_HIGH = "#7ee787"
+_CHART_MC_MEDIAN = "#f0f6fc"
+_CHART_MC_LOW = "#ff7b72"
+_CHART_DRAWDOWN_FILL = "rgba(239,68,68,0.18)"
+_CHART_DRAWDOWN_TEXT = "#fca5a5"
+_CHART_DRAWDOWN_BG = "rgba(15,23,42,0.85)"
+
 
 def plot_price_history(prices: pd.DataFrame) -> go.Figure:
     fig = go.Figure()
     for col in prices.columns:
-        fig.add_trace(go.Scatter(x=prices.index, y=prices[col], mode="lines", name=col))
+        fig.add_trace(
+            go.Scatter(x=prices.index, y=prices[col], mode="lines", name=col)
+        )
     fig.update_layout(title="Adjusted close prices", yaxis_title="Price ($)", **_LAYOUT)
     return fig
 
@@ -28,7 +43,9 @@ def plot_price_history(prices: pd.DataFrame) -> go.Figure:
 def plot_normalized_prices(normalized: pd.DataFrame) -> go.Figure:
     fig = go.Figure()
     for col in normalized.columns:
-        fig.add_trace(go.Scatter(x=normalized.index, y=normalized[col], mode="lines", name=col))
+        fig.add_trace(
+            go.Scatter(x=normalized.index, y=normalized[col], mode="lines", name=col)
+        )
     fig.add_hline(y=100, line_dash="dot", line_color="gray", opacity=0.5)
     fig.update_layout(
         title="Normalized performance (start = 100)",
@@ -46,13 +63,19 @@ def plot_portfolio_value(value: pd.Series, initial: float) -> go.Figure:
             y=value.values,
             mode="lines",
             name="Portfolio value",
-            line=dict(width=2.5, color="#4f9eff"),
+            line=dict(width=2.5, color=_CHART_PORTFOLIO_LINE),
             fill="tozeroy",
-            fillcolor="rgba(79,158,255,0.15)",
+            fillcolor=_CHART_PORTFOLIO_FILL,
         )
     )
-    fig.add_hline(y=initial, line_dash="dash", line_color="gray", opacity=0.6,
-                  annotation_text="Initial investment", annotation_position="top left")
+    fig.add_hline(
+        y=initial,
+        line_dash="dash",
+        line_color="gray",
+        opacity=0.6,
+        annotation_text="Initial investment",
+        annotation_position="top left",
+    )
     fig.update_layout(title="Portfolio value over time", yaxis_title="Value ($)", **_LAYOUT)
     return fig
 
@@ -74,7 +97,6 @@ def plot_monte_carlo(sims: pd.DataFrame) -> go.Figure:
     """Show a sample of simulated paths plus median and 5/95 percentile bands."""
     fig = go.Figure()
 
-    # Plot a thinned subset of paths to keep the figure responsive
     sample_cols = sims.columns[:: max(1, sims.shape[1] // 200)]
     for col in sample_cols:
         fig.add_trace(
@@ -82,7 +104,7 @@ def plot_monte_carlo(sims: pd.DataFrame) -> go.Figure:
                 x=sims.index,
                 y=sims[col],
                 mode="lines",
-                line=dict(width=0.5, color="rgba(120,160,220,0.25)"),
+                line=dict(width=0.5, color=_CHART_MC_PATH),
                 showlegend=False,
                 hoverinfo="skip",
             )
@@ -92,12 +114,18 @@ def plot_monte_carlo(sims: pd.DataFrame) -> go.Figure:
     p5 = sims.quantile(0.05, axis=1)
     p95 = sims.quantile(0.95, axis=1)
 
-    fig.add_trace(go.Scatter(x=sims.index, y=p95, mode="lines",
-                             line=dict(color="#7ee787", width=1.5), name="95th percentile"))
-    fig.add_trace(go.Scatter(x=sims.index, y=median, mode="lines",
-                             line=dict(color="#f0f6fc", width=2.5), name="Median"))
-    fig.add_trace(go.Scatter(x=sims.index, y=p5, mode="lines",
-                             line=dict(color="#ff7b72", width=1.5), name="5th percentile"))
+    fig.add_trace(go.Scatter(
+        x=sims.index, y=p95, mode="lines",
+        line=dict(color=_CHART_MC_HIGH, width=1.5), name="95th percentile",
+    ))
+    fig.add_trace(go.Scatter(
+        x=sims.index, y=median, mode="lines",
+        line=dict(color=_CHART_MC_MEDIAN, width=2.5), name="Median",
+    ))
+    fig.add_trace(go.Scatter(
+        x=sims.index, y=p5, mode="lines",
+        line=dict(color=_CHART_MC_LOW, width=1.5), name="5th percentile",
+    ))
 
     fig.update_layout(
         title="Monte Carlo: simulated portfolio value paths",
@@ -111,8 +139,14 @@ def plot_monte_carlo(sims: pd.DataFrame) -> go.Figure:
 def plot_weights_comparison(custom: pd.Series, equal: pd.Series) -> go.Figure:
     df = pd.DataFrame({"Custom": custom * 100, "Equal-weight": equal * 100})
     fig = go.Figure()
-    fig.add_trace(go.Bar(x=df.index, y=df["Custom"], name="Custom", marker_color="#4f9eff"))
-    fig.add_trace(go.Bar(x=df.index, y=df["Equal-weight"], name="Equal-weight", marker_color="#a371f7"))
+    fig.add_trace(go.Bar(
+        x=df.index, y=df["Custom"], name="Custom",
+        marker_color=_CHART_PORTFOLIO_LINE,
+    ))
+    fig.add_trace(go.Bar(
+        x=df.index, y=df["Equal-weight"], name="Equal-weight",
+        marker_color=_CHART_EQUAL_WEIGHT_BAR,
+    ))
     fig.update_layout(
         title="Weight allocation: custom vs. equal-weight",
         yaxis_title="Weight (%)",
@@ -130,9 +164,9 @@ def plot_drawdown(drawdown: pd.Series, max_dd: float, trough_date) -> go.Figure:
             x=drawdown.index,
             y=drawdown.values * 100,
             mode="lines",
-            line=dict(width=1.5, color="#ef4444"),
+            line=dict(width=1.5, color=COLORS["danger"]),
             fill="tozeroy",
-            fillcolor="rgba(239,68,68,0.18)",
+            fillcolor=_CHART_DRAWDOWN_FILL,
             name="Drawdown",
             hovertemplate="%{x|%Y-%m-%d}<br>DD: %{y:.2f}%<extra></extra>",
         )
@@ -144,10 +178,10 @@ def plot_drawdown(drawdown: pd.Series, max_dd: float, trough_date) -> go.Figure:
         text=f"Max DD: {max_dd * 100:.2f}%",
         showarrow=True,
         arrowhead=2,
-        arrowcolor="#ef4444",
-        font=dict(color="#fca5a5", size=12),
-        bgcolor="rgba(15,23,42,0.85)",
-        bordercolor="#ef4444",
+        arrowcolor=COLORS["danger"],
+        font=dict(color=_CHART_DRAWDOWN_TEXT, size=12),
+        bgcolor=_CHART_DRAWDOWN_BG,
+        bordercolor=COLORS["danger"],
         borderwidth=1,
     )
     fig.update_layout(
@@ -165,26 +199,20 @@ def plot_efficient_frontier(
     max_sharpe_point: dict,
     min_var_point: dict,
 ) -> go.Figure:
-    """Markowitz efficient frontier with key portfolios overlaid.
-
-    Each asset is a gray dot; the frontier curve is the set of risk/return
-    optima; the custom, max-Sharpe and min-variance portfolios are highlighted.
-    """
+    """Markowitz efficient frontier with key portfolios overlaid."""
     fig = go.Figure()
 
-    # Frontier curve
     fig.add_trace(
         go.Scatter(
             x=frontier["volatility"] * 100,
             y=frontier["return"] * 100,
             mode="lines",
-            line=dict(color="#3b82f6", width=3),
+            line=dict(color=COLORS["primary"], width=3),
             name="Efficient frontier",
             hovertemplate="Vol: %{x:.2f}%<br>Return: %{y:.2f}%<extra></extra>",
         )
     )
 
-    # Individual assets
     asset_x = [v[1] * 100 for v in asset_points.values()]
     asset_y = [v[0] * 100 for v in asset_points.values()]
     asset_names = list(asset_points.keys())
@@ -192,8 +220,10 @@ def plot_efficient_frontier(
         go.Scatter(
             x=asset_x, y=asset_y,
             mode="markers+text",
-            marker=dict(size=11, color="#94a3b8",
-                        line=dict(width=1, color="#475569")),
+            marker=dict(
+                size=11, color="#94a3b8",
+                line=dict(width=1, color="#475569"),
+            ),
             text=asset_names,
             textposition="top center",
             textfont=dict(color="#cbd5e1", size=11),
@@ -202,49 +232,14 @@ def plot_efficient_frontier(
         )
     )
 
-    # Custom portfolio (gold star)
-    fig.add_trace(
-        go.Scatter(
-            x=[custom_point["volatility"] * 100],
-            y=[custom_point["return"] * 100],
-            mode="markers+text",
-            marker=dict(size=22, color="#fbbf24", symbol="star",
-                        line=dict(width=1.5, color="#ffffff")),
-            text=["Custom"],
-            textposition="bottom center",
-            textfont=dict(color="#fbbf24", size=12, family="Arial Black"),
-            name="Custom portfolio",
-        )
+    _add_portfolio_marker(
+        fig, custom_point, "Custom", COLORS["gold"], "star", size=22,
     )
-
-    # Max Sharpe portfolio (green diamond)
-    fig.add_trace(
-        go.Scatter(
-            x=[max_sharpe_point["volatility"] * 100],
-            y=[max_sharpe_point["return"] * 100],
-            mode="markers+text",
-            marker=dict(size=18, color="#10b981", symbol="diamond",
-                        line=dict(width=1.5, color="#ffffff")),
-            text=["Max Sharpe"],
-            textposition="bottom center",
-            textfont=dict(color="#10b981", size=12, family="Arial Black"),
-            name="Max Sharpe (tangency)",
-        )
+    _add_portfolio_marker(
+        fig, max_sharpe_point, "Max Sharpe", COLORS["success"], "diamond", size=18,
     )
-
-    # Min variance portfolio (purple diamond)
-    fig.add_trace(
-        go.Scatter(
-            x=[min_var_point["volatility"] * 100],
-            y=[min_var_point["return"] * 100],
-            mode="markers+text",
-            marker=dict(size=18, color="#a855f7", symbol="diamond",
-                        line=dict(width=1.5, color="#ffffff")),
-            text=["Min Var"],
-            textposition="bottom center",
-            textfont=dict(color="#a855f7", size=12, family="Arial Black"),
-            name="Minimum variance",
-        )
+    _add_portfolio_marker(
+        fig, min_var_point, "Min Var", COLORS["purple"], "diamond", size=18,
     )
 
     fig.update_layout(
@@ -256,23 +251,45 @@ def plot_efficient_frontier(
     return fig
 
 
+def _add_portfolio_marker(
+    fig: go.Figure,
+    point: dict,
+    label: str,
+    color: str,
+    symbol: str,
+    size: int,
+) -> None:
+    fig.add_trace(
+        go.Scatter(
+            x=[point["volatility"] * 100],
+            y=[point["return"] * 100],
+            mode="markers+text",
+            marker=dict(
+                size=size, color=color, symbol=symbol,
+                line=dict(width=1.5, color="#ffffff"),
+            ),
+            text=[label],
+            textposition="bottom center",
+            textfont=dict(color=color, size=12, family="Arial Black"),
+            name=label,
+        )
+    )
+
+
 def plot_sector_breakdown(sector_weights: dict[str, float]) -> go.Figure:
     """Pie chart showing portfolio allocation broken down by sector."""
     labels = list(sector_weights.keys())
     values = list(sector_weights.values())
-    palette = [
-        "#3b82f6", "#10b981", "#fbbf24", "#a855f7", "#ef4444",
-        "#06b6d4", "#f97316", "#84cc16", "#ec4899", "#8b5cf6",
-        "#14b8a6", "#eab308",
-    ]
     fig = go.Figure(
         data=[
             go.Pie(
                 labels=labels,
                 values=values,
                 hole=0.5,
-                marker=dict(colors=palette[: len(labels)],
-                            line=dict(color="#0a0f1e", width=2)),
+                marker=dict(
+                    colors=CHART_PALETTE[: len(labels)],
+                    line=dict(color=COLORS["surface_deep"], width=2),
+                ),
                 textinfo="label+percent",
                 textfont=dict(size=12, color="#f1f5f9"),
                 hovertemplate="<b>%{label}</b><br>Weight: %{value:.2f}%<extra></extra>",
@@ -302,7 +319,7 @@ def plot_portfolio_vs_market(
     fig.add_trace(go.Scatter(
         x=p_norm.index, y=p_norm.values,
         mode="lines", name="Your portfolio",
-        line=dict(color="#3b82f6", width=2.6),
+        line=dict(color=COLORS["primary"], width=2.6),
     ))
     fig.add_trace(go.Scatter(
         x=m_norm.index, y=m_norm.values,

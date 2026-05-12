@@ -243,7 +243,12 @@ def sortino_ratio(
 # Portfolio optimization (Markowitz)
 # ============================================================================
 
-def _portfolio_perf(weights: np.ndarray, mean_annual: np.ndarray, cov_annual: np.ndarray):
+def _portfolio_perf(
+    weights: np.ndarray,
+    mean_annual: np.ndarray,
+    cov_annual: np.ndarray,
+) -> tuple[float, float]:
+    """Return (annual return, annual volatility) for a weight vector."""
     ret = float(np.dot(weights, mean_annual))
     vol = float(np.sqrt(max(np.dot(weights, np.dot(cov_annual, weights)), 0.0)))
     return ret, vol

@@ -1,3 +1,4 @@
+"""Returns & Risk tab — per-asset descriptive statistics."""
 from __future__ import annotations
 
 import pandas as pd
@@ -6,10 +7,16 @@ import streamlit as st
 from models import PortfolioAnalysisResult, ViewContext
 
 
-def render_returns_tab(result: PortfolioAnalysisResult, context: ViewContext) -> None:
+def render_returns_tab(
+    result: PortfolioAnalysisResult,
+    context: ViewContext,
+) -> None:
+    """Render per-asset stats table and daily return descriptive statistics."""
+    del context
+    asset_stats = result.asset_stats
     weights = result.weights
     returns = result.returns
-    asset_stats = result.asset_stats
+
     st.subheader("Per-asset statistics")
     display_stats = pd.DataFrame(
         {
@@ -30,7 +37,3 @@ def render_returns_tab(result: PortfolioAnalysisResult, context: ViewContext) ->
         "Annualization assumes **252 trading days** per year. "
         "Volatility = σ_daily × √252. Return = μ_daily × 252."
     )
-
-
-    # ============================================================
-    # Tab 3: Correlation
