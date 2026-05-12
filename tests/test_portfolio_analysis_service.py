@@ -56,3 +56,26 @@ def test_run_portfolio_analysis_pipeline_with_offline_prices(monkeypatch) -> Non
     assert result.simulations.shape == (21, 100)
     assert result.market_loaded is True
     assert {"beta", "alpha", "r_squared", "correlation"} <= set(result.capm)
+
+
+def test_run_portfolio_analysis_supports_demo_data_without_network() -> None:
+    request = PortfolioAnalysisRequest(
+        tickers=["AAPL", "MSFT", "NVDA"],
+        weights_pct={"AAPL": 40.0, "MSFT": 35.0, "NVDA": 25.0},
+        start_date=date(2024, 1, 1),
+        end_date=date(2024, 6, 30),
+        initial_investment=10_000.0,
+        risk_free_rate=0.02,
+        mc_horizon_days=10,
+        mc_simulations=50,
+        mc_method_label="Parametric normal",
+        use_demo_data=True,
+    )
+
+    result = portfolio_analysis.run_portfolio_analysis(request)
+
+    assert result.data_source == "Demo data"
+    assert list(result.prices.columns) == ["AAPL", "MSFT", "NVDA"]
+    assert result.market_loaded is True
+    assert result.portfolio_value.iloc[0] == 10_000.0
+    assert result.simulations.shape == (11, 50)

@@ -24,6 +24,7 @@ from analysis import (
 )
 from constants import MIN_TRADING_ROWS
 from data_loader import load_price_data
+from demo_data import load_demo_price_data
 from models import PortfolioAnalysisRequest, PortfolioAnalysisResult
 
 
@@ -39,10 +40,9 @@ def run_portfolio_analysis(
     request: PortfolioAnalysisRequest,
 ) -> PortfolioAnalysisResult:
     """Run the complete FinPort analytics pipeline."""
-    prices, failed = load_price_data(
+    prices, failed = _load_prices(
+        request,
         request.tickers,
-        request.start_date,
-        request.end_date,
     )
     if prices.empty or prices.shape[1] < 2:
         raise PortfolioAnalysisError(
@@ -167,6 +167,7 @@ def run_portfolio_analysis(
         mc_p50=float(mc_p50),
         mc_p95=float(mc_p95),
         var_95=float(var_95),
+        data_source="Demo data" if request.use_demo_data else "Yahoo Finance",
     )
 
 
@@ -185,10 +186,9 @@ def _market_benchmark(
     request: PortfolioAnalysisRequest,
     port_daily_returns: pd.Series,
 ) -> tuple[pd.Series, pd.Series, dict[str, float], bool]:
-    market_prices, _ = load_price_data(
+    market_prices, _ = _load_prices(
+        request,
         [request.benchmark_ticker],
-        request.start_date,
-        request.end_date,
     )
     if market_prices.empty:
         return (
@@ -210,3 +210,12 @@ def _market_benchmark(
         request.risk_free_rate,
     )
     return market_returns, market_value, capm, True
+
+
+def _load_prices(
+    request: PortfolioAnalysisRequest,
+    tickers: list[str],
+) -> tuple[pd.DataFrame, dict[str, str]]:
+    if request.use_demo_data:
+        return load_demo_price_data(tickers, request.start_date, request.end_date)
+    return load_price_data(tickers, request.start_date, request.end_date)

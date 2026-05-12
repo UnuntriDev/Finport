@@ -19,6 +19,7 @@ class PortfolioAnalysisRequest:
     mc_simulations: int
     mc_method_label: str
     benchmark_ticker: str = "^GSPC"
+    use_demo_data: bool = False
 
 
 @dataclass(frozen=True)
@@ -57,3 +58,4 @@ class PortfolioAnalysisResult:
     mc_p50: float
     mc_p95: float
     var_95: float
+    data_source: str

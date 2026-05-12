@@ -21,6 +21,13 @@ from constants import (
     MIN_PERIOD_DAYS,
     WEIGHT_TOLERANCE_PCT,
 )
+from demo_data import (
+    DEMO_END_DATE,
+    DEMO_INITIAL_INVESTMENT,
+    DEMO_START_DATE,
+    DEMO_TICKERS,
+    demo_weights_pct,
+)
 from models import PortfolioAnalysisRequest
 from portfolio_config import normalize_weights_to_100, parse_portfolio_config
 from portfolio_state import rebalance_after_weight_change, redistribute_equal_locked
@@ -37,6 +44,8 @@ from ui_components import sidebar_section_header
 from views.dashboard_tabs import render_dashboard_tabs
 
 logging.basicConfig(level=logging.INFO)
+_query_demo = st.query_params.get("demo") == "1"
+_query_autorun = st.query_params.get("autorun") == "1"
 
 # ---------------------------------------------------------------------------
 # Page configuration
@@ -791,6 +800,22 @@ with st.sidebar:
         icon="⚠️",
     )
 
+    # ---- DEMO / OFFLINE MODE --------------------------------------------
+    st.divider()
+    demo_mode = st.toggle(
+        "Demo / offline mode",
+        value=_query_demo,
+        key="fp_demo_mode",
+        help=(
+            "Use deterministic local demo prices instead of Yahoo Finance. "
+            "Useful for presentations, screenshots and offline testing."
+        ),
+    )
+    if demo_mode:
+        st.caption(
+            ":green[✓ Demo mode uses a local sample portfolio if inputs are empty.]"
+        )
+
     # ---- SAVE / LOAD CONFIG ---------------------------------------------
     st.divider()
     with st.expander("💾 Save / Load Configuration", expanded=False):
@@ -818,21 +843,21 @@ with st.sidebar:
     # Weights are now auto-balanced — Run is only disabled when there are
     # not enough tickers to make a portfolio.
     _missing = []
-    if len(tickers) < 2:
+    if len(tickers) < 2 and not demo_mode:
         _missing.append("at least 2 tickers")
-    if start_date is None:
+    if start_date is None and not demo_mode:
         _missing.append("start date")
-    if end_date is None:
+    if end_date is None and not demo_mode:
         _missing.append("end date")
     elif start_date is not None and start_date >= end_date:
         _missing.append("valid date range (start < end)")
     elif start_date is not None and (end_date - start_date).days < MIN_PERIOD_DAYS:
         _missing.append(f"period ≥ {MIN_PERIOD_DAYS} days")
-    if initial_investment <= 0:
+    if initial_investment <= 0 and not demo_mode:
         _missing.append("initial investment")
 
     run_disabled = bool(_missing)
-    run = st.button(
+    run_clicked = st.button(
         "▶  Run analysis",
         type="primary",
         use_container_width=True,
@@ -842,6 +867,7 @@ with st.sidebar:
             if run_disabled else "Start analysis"
         ),
     )
+    run = run_clicked or (_query_autorun and demo_mode)
 
 
 # ---------------------------------------------------------------------------
@@ -887,21 +913,46 @@ if not (run or st.session_state.get("fp_has_run", False)):
 
 
 # ---------------------------------------------------------------------------
+# Effective inputs (demo mode can fill empty configuration fields)
+# ---------------------------------------------------------------------------
+analysis_tickers = tickers
+analysis_weights_pct = weights_pct
+analysis_start_date = start_date
+analysis_end_date = end_date
+analysis_initial_investment = initial_investment
+
+if demo_mode:
+    analysis_tickers = tickers if len(tickers) >= 2 else DEMO_TICKERS
+    analysis_weights_pct = (
+        weights_pct
+        if tickers and weights_valid
+        else demo_weights_pct(analysis_tickers)
+    )
+    analysis_start_date = start_date or DEMO_START_DATE
+    analysis_end_date = end_date or DEMO_END_DATE
+    analysis_initial_investment = (
+        initial_investment
+        if initial_investment > 0
+        else DEMO_INITIAL_INVESTMENT
+    )
+
+
+# ---------------------------------------------------------------------------
 # Input validation
 # ---------------------------------------------------------------------------
-if start_date is None or end_date is None:
+if analysis_start_date is None or analysis_end_date is None:
     st.error("Select a start and end date in the sidebar.")
     st.stop()
 
-if initial_investment <= 0:
+if analysis_initial_investment <= 0:
     st.error("Enter an initial investment amount greater than $0.")
     st.stop()
 
-if start_date >= end_date:
+if analysis_start_date >= analysis_end_date:
     st.error("Start date must be earlier than end date.")
     st.stop()
 
-period_days = (end_date - start_date).days
+period_days = (analysis_end_date - analysis_start_date).days
 if period_days < MIN_PERIOD_DAYS:
     st.error(
         f"Analysis period is only **{period_days} days**. "
@@ -911,11 +962,11 @@ if period_days < MIN_PERIOD_DAYS:
     )
     st.stop()
 
-if len(tickers) < 2:
+if len(analysis_tickers) < 2:
     st.error("Select at least two tickers for a meaningful portfolio analysis.")
     st.stop()
 
-if not weights_valid:
+if not weights_valid and not demo_mode:
     st.error("Weights do not sum to 100%. Adjust them in the sidebar.")
     st.stop()
 
@@ -940,15 +991,16 @@ if run:
 # Portfolio analysis pipeline
 # ---------------------------------------------------------------------------
 analysis_request = PortfolioAnalysisRequest(
-    tickers=tickers,
-    weights_pct=weights_pct,
-    start_date=start_date,
-    end_date=end_date,
-    initial_investment=initial_investment,
+    tickers=analysis_tickers,
+    weights_pct=analysis_weights_pct,
+    start_date=analysis_start_date,
+    end_date=analysis_end_date,
+    initial_investment=analysis_initial_investment,
     risk_free_rate=risk_free_rate,
     mc_horizon_days=mc_horizon_days,
     mc_simulations=mc_simulations,
     mc_method_label=mc_method_label,
+    use_demo_data=demo_mode,
 )
 
 try:
@@ -1025,7 +1077,10 @@ if failed and not st.session_state.get("fp_dialog_suppressed", False):
     if st.session_state.get("fp_failed_dismissed_key") != _failed_key:
         show_failed_tickers_dialog(failed, _failed_key)
 
-period_str = f"{start_date.strftime('%b %Y')} – {end_date.strftime('%b %Y')}"
+period_str = (
+    f"{analysis_start_date.strftime('%b %Y')} – "
+    f"{analysis_end_date.strftime('%b %Y')}"
+)
 render_header(tickers=list(prices.columns), period=period_str)
 
 # ---- New analysis / reset button (clears dashboard, returns to landing) ----
@@ -1054,10 +1109,11 @@ with _reset_col_r:
 # ---------------------------------------------------------------------------
 render_dashboard_tabs(
     result=analysis_result,
-    start_date=start_date,
-    end_date=end_date,
-    initial_investment=initial_investment,
+    start_date=analysis_start_date,
+    end_date=analysis_end_date,
+    initial_investment=analysis_initial_investment,
     risk_free_rate=risk_free_rate,
     mc_horizon_days=mc_horizon_days,
     mc_method_label=mc_method_label,
+    demo_mode=demo_mode,
 )

@@ -9,12 +9,27 @@ The application lets users build a multi-asset portfolio, download historical
 market data, calculate risk and return metrics, compare portfolio strategies,
 run Monte Carlo simulations, generate optimization results, and export reports.
 
+## Preview
+
+### Dashboard overview
+
+![FinPort dashboard overview](docs/screenshots/overview.png)
+
+### Monte Carlo risk simulation
+
+![FinPort Monte Carlo simulation](docs/screenshots/monte_carlo.png)
+
+### Project architecture
+
+![FinPort architecture](docs/screenshots/architecture.png)
+
 ## Key Features
 
 - Multi-asset portfolio configuration with ticker chips
 - Automatic weight rebalancing to 100%
 - Lockable portfolio weights
 - Quick-add lists for stocks, indexes and crypto tickers
+- Demo/offline mode for presentations without live market-data requests
 - Historical adjusted close prices from Yahoo Finance via `yfinance`
 - Daily returns and descriptive statistics
 - Annualized return, volatility, CAGR, Sharpe ratio and Sortino ratio
@@ -82,7 +97,15 @@ run Monte Carlo simulations, generate optimization results, and export reports.
 │   ├── loader.py                  # Money-themed loading overlay
 │   └── logo.py                    # Inline SVG FinPort logo
 ├── views/
-│   └── dashboard_tabs.py          # Dashboard tab rendering layer
+│   ├── dashboard_tabs.py          # Tab router
+│   ├── overview.py                # Overview tab
+│   ├── monte_carlo.py             # Monte Carlo tab
+│   ├── optimization.py            # Efficient frontier / optimization tab
+│   ├── benchmark.py               # Benchmark comparison tab
+│   ├── export.py                  # Report/data export tab
+│   └── ...                        # Remaining dashboard tabs
+├── docs/
+│   └── screenshots/               # README preview images
 ├── examples/
 │   └── sample_portfolio.json      # Example saved portfolio configuration
 ├── tests/
@@ -164,6 +187,18 @@ http://localhost:8501
 ```
 
 In PyCharm, use the terminal inside the project folder and run the same command.
+
+To open a self-contained demo without Yahoo Finance requests:
+
+```powershell
+streamlit run app.py
+```
+
+Then open:
+
+```text
+http://localhost:8501/?demo=1&autorun=1
+```
 
 ## Running Tests
 
