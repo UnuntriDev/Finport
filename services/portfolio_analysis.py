@@ -115,18 +115,13 @@ def run_portfolio_analysis(
         port_daily_returns,
     )
 
-    mc_method = (
-        "bootstrap"
-        if request.mc_method_label == "Historical bootstrap"
-        else "parametric"
-    )
     simulations = monte_carlo_simulation(
         returns=returns,
         weights=weights,
         initial_value=request.initial_investment,
         horizon_days=request.mc_horizon_days,
         n_simulations=request.mc_simulations,
-        method=mc_method,
+        method=request.mc_method.key,
     )
     final_mc = simulations.iloc[-1]
     mc_p5, mc_p50, mc_p95 = np.percentile(final_mc, [5, 50, 95])

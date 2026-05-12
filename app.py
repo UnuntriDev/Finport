@@ -10,7 +10,7 @@ import time
 
 import streamlit as st
 
-from constants import LOADER_MIN_SECONDS, LOADER_PAINT_DELAY, MIN_PERIOD_DAYS
+from constants import LOADER_MIN_SECONDS, LOADER_PAINT_DELAY
 from demo_data import (
     DEMO_END_DATE,
     DEMO_INITIAL_INVESTMENT,
@@ -18,7 +18,7 @@ from demo_data import (
     DEMO_TICKERS,
     demo_weights_pct,
 )
-from models import PortfolioAnalysisRequest
+from models import PortfolioAnalysisRequest, ValidationError, validate_request
 from services.portfolio_analysis import (
     PortfolioAnalysisError,
     run_portfolio_analysis,
@@ -78,26 +78,10 @@ def _build_analysis_request(state: SidebarState) -> PortfolioAnalysisRequest:
 
 def _validate_analysis_inputs(request: PortfolioAnalysisRequest) -> None:
     """Defensive validation: sidebar disables Run but query params can bypass it."""
-    if request.start_date is None or request.end_date is None:
-        st.error("Select a start and end date in the sidebar.")
-        st.stop()
-    if request.initial_investment <= 0:
-        st.error("Enter an initial investment amount greater than $0.")
-        st.stop()
-    if request.start_date >= request.end_date:
-        st.error("Start date must be earlier than end date.")
-        st.stop()
-    period_days = (request.end_date - request.start_date).days
-    if period_days < MIN_PERIOD_DAYS:
-        st.error(
-            f"Analysis period is only **{period_days} days**. "
-            f"Choose at least **{MIN_PERIOD_DAYS} days** so that the covariance "
-            "matrix, Markowitz optimization and Monte Carlo simulation have "
-            "enough data to produce meaningful results."
-        )
-        st.stop()
-    if len(request.tickers) < 2:
-        st.error("Select at least two tickers for a meaningful portfolio analysis.")
+    try:
+        validate_request(request)
+    except ValidationError as exc:
+        st.error(str(exc))
         st.stop()
 
 

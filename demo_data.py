@@ -19,6 +19,12 @@ DEMO_SECTORS = {
     "^GSPC": "Market Index",
 }
 
+_BENCHMARK_TICKER = "^GSPC"
+_BENCHMARK_BASE_PRICE = 4000.0
+_BENCHMARK_DRIFT = 0.00045
+_BENCHMARK_VOL = 0.009
+_BENCHMARK_SEED = 7
+
 
 def demo_weights_pct(tickers: list[str]) -> dict[str, float]:
     """Return equal demo weights that sum exactly to 100%."""
@@ -36,24 +42,43 @@ def load_demo_price_data(
     start_date: date,
     end_date: date,
 ) -> tuple[pd.DataFrame, dict[str, str]]:
-    """Generate stable synthetic adjusted-close data for offline demos."""
+    """Generate stable synthetic adjusted-close data for offline demos.
+
+    Each individual ticker is generated as ``market_return * beta + idiosyncratic_noise``,
+    so the synthetic ``^GSPC`` benchmark genuinely correlates with the assets
+    and CAPM (beta / alpha / R²) produces meaningful values in demo mode.
+    """
     index = pd.bdate_range(start_date, end_date)
     if len(index) == 0:
         return pd.DataFrame(), {}
 
-    market_rng = np.random.default_rng(7)
-    market_returns = market_rng.normal(0.00045, 0.009, len(index))
-    data = {}
+    market_returns = _generate_market_returns(len(index))
+    data: dict[str, np.ndarray] = {}
+
     for ticker in tickers:
-        seed = zlib.crc32(ticker.encode("utf-8"))
-        rng = np.random.default_rng(seed)
-        beta = 0.75 + (seed % 70) / 100
-        drift = 0.00015 + (seed % 17) / 100000
-        noise = rng.normal(0.0, 0.006 + (seed % 11) / 2000, len(index))
-        returns = drift + beta * market_returns + noise
-        base_price = 80.0 + (seed % 220)
-        data[ticker] = base_price * np.cumprod(1.0 + returns)
+        if ticker == _BENCHMARK_TICKER:
+            data[ticker] = _BENCHMARK_BASE_PRICE * np.cumprod(1.0 + market_returns)
+            continue
+        data[ticker] = _generate_asset_path(ticker, market_returns)
 
     prices = pd.DataFrame(data, index=index)
     prices.index.name = "Date"
     return prices.round(2), {}
+
+
+def _generate_market_returns(n_days: int) -> np.ndarray:
+    """Generate the deterministic market (S&P 500) daily return series."""
+    rng = np.random.default_rng(_BENCHMARK_SEED)
+    return rng.normal(_BENCHMARK_DRIFT, _BENCHMARK_VOL, n_days)
+
+
+def _generate_asset_path(ticker: str, market_returns: np.ndarray) -> np.ndarray:
+    """Build a deterministic price path correlated with the market via beta."""
+    seed = zlib.crc32(ticker.encode("utf-8"))
+    rng = np.random.default_rng(seed)
+    beta = 0.75 + (seed % 70) / 100
+    drift = 0.00015 + (seed % 17) / 100000
+    idiosyncratic = rng.normal(0.0, 0.006 + (seed % 11) / 2000, len(market_returns))
+    returns = drift + beta * market_returns + idiosyncratic
+    base_price = 80.0 + (seed % 220)
+    return base_price * np.cumprod(1.0 + returns)

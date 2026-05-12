@@ -1,5 +1,7 @@
 # FinPort
 
+[![Tests](https://github.com/ununtridev/finport/actions/workflows/tests.yml/badge.svg)](https://github.com/ununtridev/finport/actions/workflows/tests.yml)
+
 FinPort is a Streamlit fintech dashboard for portfolio analysis and risk
 assessment. It was built as a university Finance and Banking project, with a
 focus on realistic quantitative finance logic, clean UI, modular Python code,

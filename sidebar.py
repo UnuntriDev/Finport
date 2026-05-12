@@ -9,6 +9,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from constants import MAX_TICKERS, MIN_PERIOD_DAYS, WEIGHT_TOLERANCE_PCT
+from models import MonteCarloMethod
 from portfolio_config import normalize_weights_to_100, parse_portfolio_config
 from portfolio_state import rebalance_after_weight_change, redistribute_equal_locked
 from theme import CHART_PALETTE
@@ -573,7 +574,7 @@ def render_sidebar(query_demo: bool = False, query_autorun: bool = False) -> Sid
         )
         mc_method_label = st.selectbox(
             "Simulation method",
-            ["Parametric normal", "Historical bootstrap"],
+            [method.value for method in MonteCarloMethod],
             key="fp_mc_method_input",
             help=(
                 "Parametric normal uses historical mean/covariance. Historical "
