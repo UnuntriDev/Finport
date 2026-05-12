@@ -1,135 +1,270 @@
 # FinPort
 
-FinPort is a Streamlit web application for portfolio analysis and risk assessment in stock investments. It was built as an academic Finance and Banking project, but it follows a modular project structure and uses realistic quantitative finance formulas.
+FinPort is a Streamlit fintech dashboard for portfolio analysis and risk
+assessment. It was built as a university Finance and Banking project, with a
+focus on realistic quantitative finance logic, clean UI, modular Python code,
+and reproducible local execution.
 
-## Features
+The application lets users build a multi-asset portfolio, download historical
+market data, calculate risk and return metrics, compare portfolio strategies,
+run Monte Carlo simulations, generate optimization results, and export reports.
 
-- Multi-asset portfolio configuration with ticker chips and auto-balanced weights
-- Yahoo Finance market data via `yfinance`
-- Adjusted close prices and daily returns
-- Annualized portfolio return and volatility
-- Sharpe ratio, Sortino ratio, max drawdown
-- Correlation matrix and sector allocation
-- Monte Carlo simulation of future portfolio value
-- Markowitz optimization:
-  - Maximum Sharpe portfolio
-  - Minimum variance portfolio
-  - Efficient frontier
-- CAPM benchmark analysis against S&P 500:
+## Key Features
+
+- Multi-asset portfolio configuration with ticker chips
+- Automatic weight rebalancing to 100%
+- Lockable portfolio weights
+- Quick-add lists for stocks, indexes and crypto tickers
+- Historical adjusted close prices from Yahoo Finance via `yfinance`
+- Daily returns and descriptive statistics
+- Annualized return, volatility, CAGR, Sharpe ratio and Sortino ratio
+- Maximum drawdown analysis
+- Correlation matrix and diversification analysis
+- Sector allocation breakdown
+- Equal-weight benchmark comparison
+- CAPM analysis versus S&P 500:
   - Beta
   - Alpha
   - R-squared
   - Correlation
-- Equal-weight benchmark comparison
-- PDF, Excel and CSV export
+- Markowitz portfolio optimization:
+  - Efficient frontier
+  - Maximum Sharpe portfolio
+  - Minimum variance portfolio
+- Monte Carlo simulation:
+  - Parametric normal simulation
+  - Historical bootstrap simulation
+  - Value at Risk style downside estimate
+- Export options:
+  - PDF report
+  - Excel workbook
+  - CSV price, returns and summary data
 - Save/load portfolio configuration as JSON
-- Glossary of finance terms
+- Finance glossary and model assumptions tab
+- Offline unit/integration tests for core logic
+
+## Tech Stack
+
+- Python
+- Streamlit
+- pandas
+- numpy
+- scipy
+- plotly
+- yfinance
+- fpdf2
+- openpyxl
+- pytest
+- Ruff
 
 ## Project Structure
 
 ```text
 .
-├── app.py                 # Streamlit UI and dashboard orchestration
-├── analysis.py            # Pure quantitative finance calculations
-├── data_loader.py         # yfinance data loading and sector lookup
-├── visualization.py       # Plotly chart builders
-├── report_exporter.py     # PDF, CSV and Excel export helpers
-├── constants.py           # Shared app constants
-├── ticker_utils.py        # Ticker validation helpers
+├── app.py                         # Streamlit UI entry point
+├── analysis.py                    # Pure quantitative finance calculations
+├── constants.py                   # Shared configuration constants
+├── data_loader.py                 # Yahoo Finance price and metadata loading
+├── models.py                      # Dataclasses for analysis requests/results
+├── portfolio_config.py            # Save/load portfolio config parsing
+├── portfolio_state.py             # Testable portfolio weight state logic
+├── report_exporter.py             # PDF, Excel and CSV export helpers
+├── ticker_utils.py                # Ticker normalization and validation
+├── theme.py                       # Shared chart/UI palette
+├── ui_components.py               # Reusable Streamlit HTML components
+├── visualization.py               # Plotly chart builders
+├── content/
+│   └── glossary.py                # Finance glossary content
+├── services/
+│   └── portfolio_analysis.py      # End-to-end analysis orchestration
+├── ui/
+│   ├── dialogs.py                 # Streamlit dialogs
+│   ├── loader.py                  # Money-themed loading overlay
+│   └── logo.py                    # Inline SVG FinPort logo
+├── examples/
+│   └── sample_portfolio.json      # Example saved portfolio configuration
 ├── tests/
-│   └── test_analysis.py   # Unit tests for financial logic
-├── requirements.txt
-├── runtime.txt
-└── .streamlit/
-    └── config.toml
+│   ├── test_analysis.py
+│   ├── test_data_loader.py
+│   ├── test_portfolio_analysis_service.py
+│   ├── test_portfolio_config.py
+│   ├── test_portfolio_state.py
+│   └── test_report_exporter.py
+├── .github/
+│   └── workflows/                 # GitHub Actions CI
+├── .streamlit/
+│   └── config.toml                # Streamlit theme/config
+├── pyproject.toml                 # pytest and Ruff configuration
+├── requirements.txt               # Runtime dependencies
+├── requirements-dev.txt           # Developer/test dependencies
+└── runtime.txt                    # Python runtime for deployment
 ```
+
+## Architecture
+
+FinPort separates the application into four main layers:
+
+1. **UI layer**: `app.py`, `ui/`, `ui_components.py`
+2. **Application service layer**: `services/portfolio_analysis.py`
+3. **Finance calculation layer**: `analysis.py`
+4. **Data/export layer**: `data_loader.py`, `report_exporter.py`
+
+The Streamlit app is responsible for user interaction and rendering. The
+portfolio analysis service coordinates the full analysis pipeline and returns a
+structured `PortfolioAnalysisResult`. Core financial calculations are pure
+functions, which makes them easier to test and maintain.
 
 ## Installation
 
-Create and activate a virtual environment:
+Clone the repository and enter the project folder:
+
+```powershell
+git clone https://github.com/UnuntriDev/Finport.git
+cd Finport
+```
+
+Create a virtual environment:
 
 ```powershell
 python -m venv .venv
+```
+
+Activate it on Windows PowerShell:
+
+```powershell
 .\.venv\Scripts\Activate.ps1
 ```
 
-Install dependencies:
+Install runtime dependencies:
 
 ```powershell
 pip install -r requirements.txt
 ```
 
-Run tests:
+For development and tests, install developer dependencies too:
 
 ```powershell
-pytest
+pip install -r requirements-dev.txt
 ```
 
-Run the app:
+## Running The App
+
+Start the Streamlit dashboard:
 
 ```powershell
 streamlit run app.py
 ```
 
-The app opens at:
+The app will open at:
 
 ```text
 http://localhost:8501
 ```
 
+In PyCharm, use the terminal inside the project folder and run the same command.
+
+## Running Tests
+
+Run the full test suite:
+
+```powershell
+pytest
+```
+
+Run Ruff code checks:
+
+```powershell
+ruff check .
+```
+
+The test suite includes offline tests for the analysis service, so core
+portfolio logic can be verified without relying on live Yahoo Finance requests.
+
 ## Example Portfolio
 
-You can load an example portfolio from:
+An example portfolio configuration is available in:
 
 ```text
 examples/sample_portfolio.json
 ```
 
-Use the **Save / Load Configuration** section in the sidebar.
-
-## Data Source
-
-Market prices and instrument metadata are downloaded from Yahoo Finance using `yfinance`.
-
-Known limitations:
-
-- Yahoo Finance can temporarily throttle requests.
-- Some tickers may not return sector metadata.
-- Recently listed assets may have insufficient historical data.
-- Results depend on the selected historical period.
+Use the **Save / Load Configuration** section in the sidebar to load it.
 
 ## Financial Methodology
 
-FinPort uses standard portfolio analysis techniques:
+FinPort uses standard quantitative finance methods:
 
 - Daily simple returns: `price_t / price_t-1 - 1`
-- Annualized return: mean daily return multiplied by 252 trading days
+- Annualized return: average daily return multiplied by 252 trading days
 - Annualized volatility: daily standard deviation multiplied by `sqrt(252)`
-- Portfolio volatility: full covariance matrix calculation
-- Sharpe ratio: excess return per unit of volatility
+- Portfolio return: weighted sum of asset returns
+- Portfolio volatility: covariance matrix calculation
+- Sharpe ratio: excess return per unit of total volatility
 - Sortino ratio: excess return per unit of downside volatility
-- Max drawdown: largest peak-to-trough decline
-- CAPM beta/alpha: regression against S&P 500 returns
-- Monte Carlo: multivariate normal simulation preserving historical covariance
-- Markowitz optimization: long-only portfolio optimization using SLSQP
+- Maximum drawdown: largest peak-to-trough portfolio loss
+- CAPM beta/alpha: portfolio sensitivity and excess return versus S&P 500
+- Efficient frontier: Markowitz long-only optimization
+- Monte Carlo simulation:
+  - Parametric normal model using historical mean/covariance
+  - Historical bootstrap using sampled historical return rows
+
+## Important Assumptions
+
+- The app uses adjusted close prices from Yahoo Finance.
+- Portfolio value is calculated as buy-and-hold from the selected start date.
+- Transaction costs, taxes and slippage are not included.
+- Metrics are annualized using 252 trading days.
+- Monte Carlo scenarios are based on historical data and are not predictions.
+- Optimization is long-only and assumes weights sum to 100%.
+- Results depend strongly on the selected historical period.
 
 ## Deployment
 
 The recommended deployment target is Streamlit Community Cloud.
 
-Steps:
-
-1. Push this project to GitHub.
+1. Push the project to GitHub.
 2. Go to [Streamlit Community Cloud](https://streamlit.io/cloud).
-3. Create a new app from the GitHub repository.
+3. Create a new app from the repository.
 4. Set the main file path to:
 
 ```text
 app.py
 ```
 
-The app uses `runtime.txt` to request Python 3.11.
+The repository includes `runtime.txt`, `requirements.txt`, and `.streamlit/config.toml`
+for deployment.
+
+## Data Source
+
+Market prices and instrument metadata are downloaded from Yahoo Finance using
+`yfinance`.
+
+Known limitations:
+
+- Yahoo Finance can temporarily throttle requests.
+- Some tickers may not return sector metadata.
+- Recently listed assets may have insufficient historical data.
+- Wrong or delisted symbols are excluded from the analysis.
+- Live data availability can differ by asset class and region.
+
+## Academic Context
+
+FinPort demonstrates:
+
+- Portfolio construction and weight management
+- Historical return and risk analysis
+- Diversification and correlation analysis
+- Market benchmark comparison
+- CAPM interpretation
+- Markowitz portfolio optimization
+- Monte Carlo risk simulation
+- Report generation and data export
+- Modular Python application design
+- Automated testing of financial logic
 
 ## Disclaimer
 
-This application is for educational and academic purposes only. It does not constitute investment advice, financial recommendation, or an offer to buy or sell securities. Past performance is not indicative of future results. Market data is provided by Yahoo Finance and may contain inaccuracies or delays.
+This application is for educational and academic purposes only. It does not
+constitute investment advice, financial recommendation, or an offer to buy or
+sell securities. Past performance is not indicative of future results. Market
+data is provided by Yahoo Finance and may contain inaccuracies, delays or gaps.
