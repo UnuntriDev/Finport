@@ -79,3 +79,15 @@ def export_item_label(label: str) -> str:
         'text-transform:uppercase; letter-spacing:0.06em; margin-bottom:4px;">'
         f'{escape(label)}</div>'
     )
+
+
+def muted_paragraph(text: str, margin_bottom: int = 24) -> str:
+    return (
+        f'<p style="color:{COLORS["muted"]}; font-size:14px; '
+        f'margin-bottom:{margin_bottom}px;">'
+        f'{escape(text)}</p>'
+    )
+
+
+def vertical_spacer(height: int = 20) -> str:
+    return f"<div style='margin-bottom:{height}px;'></div>"

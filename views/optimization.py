@@ -3,58 +3,32 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
-from ui_components import metric_card
+from models import PortfolioAnalysisResult, ViewContext
+from ui_components import metric_card, muted_paragraph, vertical_spacer
 from visualization import plot_efficient_frontier
 
 
-def render_optimization_tab(*, 
-    prices,
-    weights,
-    returns,
-    norm,
-    asset_stats,
-    port_metrics,
-    sharpe,
-    corr,
-    port_value,
-    portfolio_cagr,
-    equal_weights,
-    eq_metrics,
-    eq_sharpe,
-    eq_value,
-    dd_info,
-    sortino,
-    max_sharpe_weights,
-    min_var_weights,
-    max_sharpe_metrics,
-    min_var_metrics,
-    max_sharpe_value,
-    min_var_sharpe,
-    frontier_df,
-    market_value,
-    capm,
-    market_loaded,
-    sims,
-    mc_p5,
-    mc_p50,
-    mc_p95,
-    var_95,
-    mc_method,
-    start_date,
-    end_date,
-    initial_investment,
-    risk_free_rate,
-    mc_horizon_days,
-    mc_method_label,
-    demo_mode,
-) -> None:
+def render_optimization_tab(result: PortfolioAnalysisResult, context: ViewContext) -> None:
+    prices = result.prices
+    weights = result.weights
+    asset_stats = result.asset_stats
+    port_metrics = result.portfolio_metrics
+    sharpe = result.portfolio_sharpe
+    max_sharpe_weights = result.max_sharpe_weights
+    min_var_weights = result.min_variance_weights
+    max_sharpe_metrics = result.max_sharpe_metrics
+    min_var_metrics = result.min_variance_metrics
+    max_sharpe_value = result.max_sharpe_ratio
+    min_var_sharpe = result.min_variance_sharpe
+    frontier_df = result.efficient_frontier
     st.subheader("Markowitz Portfolio Optimization")
     st.markdown(
-        '<p style="color:#64748b; font-size:14px; margin-bottom:20px;">'
-        "Two classical optimal portfolios computed by minimizing variance under "
-        "constraints (long-only, sum of weights = 1). The <b>Efficient Frontier</b> "
-        "below shows the best achievable risk/return trade-offs."
-        "</p>",
+        muted_paragraph(
+            "Two classical optimal portfolios computed by minimizing variance under "
+            "constraints (long-only, sum of weights = 1). The Efficient Frontier "
+            "below shows the best achievable risk/return trade-offs.",
+            margin_bottom=20,
+        ),
         unsafe_allow_html=True,
     )
 
@@ -100,7 +74,7 @@ def render_optimization_tab(*,
             unsafe_allow_html=True,
         )
 
-    st.markdown("<div style='margin-bottom:24px;'></div>", unsafe_allow_html=True)
+    st.markdown(vertical_spacer(24), unsafe_allow_html=True)
 
     # Optimal weights table
     st.subheader("Optimal weights")

@@ -84,6 +84,7 @@ run Monte Carlo simulations, generate optimization results, and export reports.
 ├── portfolio_config.py            # Save/load portfolio config parsing
 ├── portfolio_state.py             # Testable portfolio weight state logic
 ├── report_exporter.py             # PDF, Excel and CSV export helpers
+├── sidebar.py                     # Sidebar configuration, callbacks and input state
 ├── ticker_utils.py                # Ticker normalization and validation
 ├── theme.py                       # Shared chart/UI palette
 ├── ui_components.py               # Reusable Streamlit HTML components
@@ -95,7 +96,8 @@ run Monte Carlo simulations, generate optimization results, and export reports.
 ├── ui/
 │   ├── dialogs.py                 # Streamlit dialogs
 │   ├── loader.py                  # Money-themed loading overlay
-│   └── logo.py                    # Inline SVG FinPort logo
+│   ├── logo.py                    # Inline SVG FinPort logo
+│   └── styles.py                  # Shared Streamlit CSS
 ├── views/
 │   ├── dashboard_tabs.py          # Tab router
 │   ├── overview.py                # Overview tab
@@ -212,6 +214,12 @@ Run Ruff code checks:
 
 ```powershell
 ruff check .
+```
+
+Run static type checks after installing developer dependencies:
+
+```powershell
+mypy .
 ```
 
 The test suite includes offline tests for the analysis service, so core

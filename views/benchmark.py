@@ -3,51 +3,23 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
-from ui_components import metric_card
+from models import PortfolioAnalysisResult, ViewContext
+from ui_components import metric_card, vertical_spacer
 from visualization import plot_portfolio_vs_market, plot_weights_comparison
 
 
-def render_benchmark_tab(*, 
-    prices,
-    weights,
-    returns,
-    norm,
-    asset_stats,
-    port_metrics,
-    sharpe,
-    corr,
-    port_value,
-    portfolio_cagr,
-    equal_weights,
-    eq_metrics,
-    eq_sharpe,
-    eq_value,
-    dd_info,
-    sortino,
-    max_sharpe_weights,
-    min_var_weights,
-    max_sharpe_metrics,
-    min_var_metrics,
-    max_sharpe_value,
-    min_var_sharpe,
-    frontier_df,
-    market_value,
-    capm,
-    market_loaded,
-    sims,
-    mc_p5,
-    mc_p50,
-    mc_p95,
-    var_95,
-    mc_method,
-    start_date,
-    end_date,
-    initial_investment,
-    risk_free_rate,
-    mc_horizon_days,
-    mc_method_label,
-    demo_mode,
-) -> None:
+def render_benchmark_tab(result: PortfolioAnalysisResult, context: ViewContext) -> None:
+    weights = result.weights
+    port_metrics = result.portfolio_metrics
+    sharpe = result.portfolio_sharpe
+    port_value = result.portfolio_value
+    equal_weights = result.equal_weights
+    eq_metrics = result.equal_weight_metrics
+    eq_sharpe = result.equal_weight_sharpe
+    eq_value = result.equal_weight_value
+    market_value = result.market_value
+    capm = result.capm
+    market_loaded = result.market_loaded
     st.subheader("Custom portfolio vs. equal-weight benchmark")
 
     comparison_fmt = pd.DataFrame(
@@ -144,7 +116,7 @@ def render_benchmark_tab(*,
                 unsafe_allow_html=True,
             )
 
-        st.markdown("<div style='margin-bottom:20px;'></div>", unsafe_allow_html=True)
+        st.markdown(vertical_spacer(20), unsafe_allow_html=True)
 
         st.plotly_chart(
             plot_portfolio_vs_market(port_value, market_value, market_label="S&P 500"),

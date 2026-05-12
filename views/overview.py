@@ -5,7 +5,8 @@ import streamlit as st
 
 from data_loader import load_sector_info
 from demo_data import DEMO_SECTORS
-from ui_components import metric_card
+from models import PortfolioAnalysisResult, ViewContext
+from ui_components import metric_card, vertical_spacer
 from visualization import (
     plot_drawdown,
     plot_normalized_prices,
@@ -15,47 +16,21 @@ from visualization import (
 )
 
 
-def render_overview_tab(*, 
-    prices,
-    weights,
-    returns,
-    norm,
-    asset_stats,
-    port_metrics,
-    sharpe,
-    corr,
-    port_value,
-    portfolio_cagr,
-    equal_weights,
-    eq_metrics,
-    eq_sharpe,
-    eq_value,
-    dd_info,
-    sortino,
-    max_sharpe_weights,
-    min_var_weights,
-    max_sharpe_metrics,
-    min_var_metrics,
-    max_sharpe_value,
-    min_var_sharpe,
-    frontier_df,
-    market_value,
-    capm,
-    market_loaded,
-    sims,
-    mc_p5,
-    mc_p50,
-    mc_p95,
-    var_95,
-    mc_method,
-    start_date,
-    end_date,
-    initial_investment,
-    risk_free_rate,
-    mc_horizon_days,
-    mc_method_label,
-    demo_mode,
-) -> None:
+def render_overview_tab(result: PortfolioAnalysisResult, context: ViewContext) -> None:
+    prices = result.prices
+    weights = result.weights
+    norm = result.normalized_prices
+    port_metrics = result.portfolio_metrics
+    sharpe = result.portfolio_sharpe
+    port_value = result.portfolio_value
+    portfolio_cagr = result.portfolio_cagr
+    dd_info = result.drawdown_info
+    sortino = result.sortino
+    capm = result.capm
+    market_loaded = result.market_loaded
+    initial_investment = context.initial_investment
+    risk_free_rate = context.risk_free_rate
+    demo_mode = context.demo_mode
     # --- Colored metric cards ---
     ann_ret = port_metrics["return"]
     ann_vol = port_metrics["volatility"]
@@ -143,7 +118,7 @@ def render_overview_tab(*,
             unsafe_allow_html=True,
         )
 
-    st.markdown("<div style='margin-bottom:20px;'></div>", unsafe_allow_html=True)
+    st.markdown(vertical_spacer(20), unsafe_allow_html=True)
 
     # Second row of metrics: drawdown + sortino
     max_dd_pct = dd_info["max_drawdown"] * 100
@@ -225,7 +200,7 @@ def render_overview_tab(*,
             unsafe_allow_html=True,
         )
 
-    st.markdown("<div style='margin-bottom:20px;'></div>", unsafe_allow_html=True)
+    st.markdown(vertical_spacer(20), unsafe_allow_html=True)
     st.divider()
 
     st.subheader("Adjusted closing prices")

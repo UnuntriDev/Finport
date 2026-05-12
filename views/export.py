@@ -5,6 +5,7 @@ from datetime import date
 
 import streamlit as st
 
+from models import PortfolioAnalysisResult, ViewContext
 from report_exporter import (
     build_excel_workbook,
     build_pdf,
@@ -12,57 +13,47 @@ from report_exporter import (
     returns_to_csv,
     summary_to_csv,
 )
-from ui_components import export_item_label, export_section_header
+from ui_components import (
+    export_item_label,
+    export_section_header,
+    muted_paragraph,
+    vertical_spacer,
+)
 
 logger = logging.getLogger(__name__)
 
 
-def render_export_tab(*, 
-    prices,
-    weights,
-    returns,
-    norm,
-    asset_stats,
-    port_metrics,
-    sharpe,
-    corr,
-    port_value,
-    portfolio_cagr,
-    equal_weights,
-    eq_metrics,
-    eq_sharpe,
-    eq_value,
-    dd_info,
-    sortino,
-    max_sharpe_weights,
-    min_var_weights,
-    max_sharpe_metrics,
-    min_var_metrics,
-    max_sharpe_value,
-    min_var_sharpe,
-    frontier_df,
-    market_value,
-    capm,
-    market_loaded,
-    sims,
-    mc_p5,
-    mc_p50,
-    mc_p95,
-    var_95,
-    mc_method,
-    start_date,
-    end_date,
-    initial_investment,
-    risk_free_rate,
-    mc_horizon_days,
-    mc_method_label,
-    demo_mode,
-) -> None:
+def render_export_tab(result: PortfolioAnalysisResult, context: ViewContext) -> None:
+    prices = result.prices
+    weights = result.weights
+    returns = result.returns
+    asset_stats = result.asset_stats
+    port_metrics = result.portfolio_metrics
+    sharpe = result.portfolio_sharpe
+    port_value = result.portfolio_value
+    portfolio_cagr = result.portfolio_cagr
+    dd_info = result.drawdown_info
+    sortino = result.sortino
+    max_sharpe_weights = result.max_sharpe_weights
+    min_var_weights = result.min_variance_weights
+    max_sharpe_metrics = result.max_sharpe_metrics
+    min_var_metrics = result.min_variance_metrics
+    capm = result.capm
+    market_loaded = result.market_loaded
+    mc_p5 = result.mc_p5
+    mc_p50 = result.mc_p50
+    mc_p95 = result.mc_p95
+    start_date = context.start_date
+    end_date = context.end_date
+    initial_investment = context.initial_investment
+    risk_free_rate = context.risk_free_rate
+    mc_horizon_days = context.mc_horizon_days
+    mc_method_label = context.mc_method_label
     st.subheader("Download report & data")
     st.markdown(
-        '<p style="color:#64748b; font-size:14px; margin-bottom:24px;">'
-        "Export the full analysis as a PDF report or download raw data as CSV files."
-        "</p>",
+        muted_paragraph(
+            "Export the full analysis as a PDF report or download raw data as CSV files."
+        ),
         unsafe_allow_html=True,
     )
 
@@ -179,7 +170,7 @@ def render_export_tab(*,
         if st.session_state.get("fp_excel_error"):
             st.error(f"Excel export failed: {st.session_state['fp_excel_error']}")
 
-    st.markdown("<div style='margin-bottom:24px;'></div>", unsafe_allow_html=True)
+    st.markdown(vertical_spacer(24), unsafe_allow_html=True)
 
     # ---- Raw data (CSV) -------------------------------------------------
     st.markdown(

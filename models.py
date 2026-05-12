@@ -59,3 +59,20 @@ class PortfolioAnalysisResult:
     mc_p95: float
     var_95: float
     data_source: str
+
+
+@dataclass(frozen=True)
+class ViewContext:
+    start_date: date
+    end_date: date
+    initial_investment: float
+    risk_free_rate: float
+    mc_horizon_days: int
+    mc_method_label: str
+    demo_mode: bool = False
+
+    @property
+    def mc_method(self) -> str:
+        if self.mc_method_label == "Historical bootstrap":
+            return "bootstrap"
+        return "parametric"

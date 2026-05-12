@@ -2,51 +2,19 @@ from __future__ import annotations
 
 import streamlit as st
 
-from ui_components import metric_card
+from models import PortfolioAnalysisResult, ViewContext
+from ui_components import metric_card, vertical_spacer
 from visualization import plot_monte_carlo
 
 
-def render_monte_carlo_tab(*, 
-    prices,
-    weights,
-    returns,
-    norm,
-    asset_stats,
-    port_metrics,
-    sharpe,
-    corr,
-    port_value,
-    portfolio_cagr,
-    equal_weights,
-    eq_metrics,
-    eq_sharpe,
-    eq_value,
-    dd_info,
-    sortino,
-    max_sharpe_weights,
-    min_var_weights,
-    max_sharpe_metrics,
-    min_var_metrics,
-    max_sharpe_value,
-    min_var_sharpe,
-    frontier_df,
-    market_value,
-    capm,
-    market_loaded,
-    sims,
-    mc_p5,
-    mc_p50,
-    mc_p95,
-    var_95,
-    mc_method,
-    start_date,
-    end_date,
-    initial_investment,
-    risk_free_rate,
-    mc_horizon_days,
-    mc_method_label,
-    demo_mode,
-) -> None:
+def render_monte_carlo_tab(result: PortfolioAnalysisResult, context: ViewContext) -> None:
+    sims = result.simulations
+    mc_p5 = result.mc_p5
+    mc_p50 = result.mc_p50
+    mc_p95 = result.mc_p95
+    var_95 = result.var_95
+    initial_investment = context.initial_investment
+    mc_method = context.mc_method
     st.subheader("Monte Carlo simulation of portfolio value")
 
     m1, m2, m3, m4 = st.columns(4)
@@ -104,7 +72,7 @@ def render_monte_carlo_tab(*,
             unsafe_allow_html=True,
         )
 
-    st.markdown("<div style='margin-bottom:20px;'></div>", unsafe_allow_html=True)
+    st.markdown(vertical_spacer(20), unsafe_allow_html=True)
     st.plotly_chart(plot_monte_carlo(sims), use_container_width=True)
     if mc_method == "bootstrap":
         st.caption(

@@ -2,56 +2,21 @@ from __future__ import annotations
 
 import streamlit as st
 
-from ui_components import metric_card
+from models import PortfolioAnalysisResult, ViewContext
+from ui_components import metric_card, muted_paragraph
 
 
-def render_assumptions_tab(*, 
-    prices,
-    weights,
-    returns,
-    norm,
-    asset_stats,
-    port_metrics,
-    sharpe,
-    corr,
-    port_value,
-    portfolio_cagr,
-    equal_weights,
-    eq_metrics,
-    eq_sharpe,
-    eq_value,
-    dd_info,
-    sortino,
-    max_sharpe_weights,
-    min_var_weights,
-    max_sharpe_metrics,
-    min_var_metrics,
-    max_sharpe_value,
-    min_var_sharpe,
-    frontier_df,
-    market_value,
-    capm,
-    market_loaded,
-    sims,
-    mc_p5,
-    mc_p50,
-    mc_p95,
-    var_95,
-    mc_method,
-    start_date,
-    end_date,
-    initial_investment,
-    risk_free_rate,
-    mc_horizon_days,
-    mc_method_label,
-    demo_mode,
-) -> None:
+def render_assumptions_tab(result: PortfolioAnalysisResult, context: ViewContext) -> None:
+    market_value = result.market_value
+    mc_method_label = context.mc_method_label
+    demo_mode = context.demo_mode
     st.subheader("Model assumptions")
     st.markdown(
-        '<p style="color:#64748b; font-size:14px; margin-bottom:20px;">'
-        "FinPort is an educational analytics tool. These assumptions explain "
-        "how to interpret the results responsibly."
-        "</p>",
+        muted_paragraph(
+            "FinPort is an educational analytics tool. These assumptions explain "
+            "how to interpret the results responsibly.",
+            margin_bottom=20,
+        ),
         unsafe_allow_html=True,
     )
 
