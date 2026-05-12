@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "saved_at": "2026-05-12",
+  "tickers": ["AAPL", "MSFT", "NVDA", "META"],
+  "weights": {
+    "AAPL": 25.0,
+    "MSFT": 25.0,
+    "NVDA": 25.0,
+    "META": 25.0
+  },
+  "locks": {
+    "AAPL": false,
+    "MSFT": false,
+    "NVDA": false,
+    "META": false
+  },
+  "start": "2023-01-01",
+  "end": "2026-05-11"
+}
