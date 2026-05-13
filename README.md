@@ -315,3 +315,8 @@ This application is for educational and academic purposes only. It does not
 constitute investment advice, financial recommendation, or an offer to buy or
 sell securities. Past performance is not indicative of future results. Market
 data is provided by Yahoo Finance and may contain inaccuracies, delays or gaps.
+
+## License
+
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for
+details.
