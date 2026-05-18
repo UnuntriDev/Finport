@@ -148,8 +148,8 @@ functions, which makes them easier to test and maintain.
 Clone the repository and enter the project folder:
 
 ```powershell
-git clone https://github.com/UnuntriDev/Finport.git
-cd Finport
+git clone https://github.com/ununtridev/finport.git
+cd finport
 ```
 
 Create a virtual environment:
