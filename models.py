@@ -11,14 +11,12 @@ from constants import MIN_PERIOD_DAYS
 
 
 class MonteCarloMethod(StrEnum):
-    """Identifiers for supported Monte Carlo simulation methods."""
-
     PARAMETRIC = "Parametric normal"
     BOOTSTRAP = "Historical bootstrap"
 
     @property
     def key(self) -> str:
-        """Internal key used by `analysis.monte_carlo_simulation`."""
+        """Key consumed by ``analysis.monte_carlo_simulation``."""
         return "bootstrap" if self is MonteCarloMethod.BOOTSTRAP else "parametric"
 
     @classmethod
@@ -110,7 +108,7 @@ class ViewContext:
 
 
 def validate_request(request: PortfolioAnalysisRequest) -> None:
-    """Validate an analysis request; raise ValidationError with a user message."""
+    """Raise ValidationError with a user-facing message if the request is invalid."""
     if request.start_date is None or request.end_date is None:
         raise ValidationError("Select a start and end date in the sidebar.")
     if request.initial_investment <= 0:

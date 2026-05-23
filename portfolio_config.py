@@ -1,5 +1,4 @@
-"""Pure helpers for saved portfolio configuration files."""
-
+"""Saved portfolio configuration (JSON) parsing and weight normalization."""
 from __future__ import annotations
 
 import json
@@ -20,7 +19,7 @@ class PortfolioConfig:
 
 
 def parse_portfolio_config(raw: bytes | str) -> PortfolioConfig:
-    """Parse and validate a saved FinPort portfolio configuration."""
+    """Parse a saved FinPort config. Raises ValueError on any validation issue."""
     try:
         config = json.loads(raw)
     except (json.JSONDecodeError, TypeError, UnicodeDecodeError) as exc:
@@ -76,7 +75,7 @@ def parse_portfolio_config(raw: bytes | str) -> PortfolioConfig:
 
 
 def normalize_weights_to_100(weights: dict[str, float]) -> dict[str, float]:
-    """Scale positive weights so the total equals 100%; equal-weight if empty."""
+    """Scale weights to sum to 100%. Falls back to equal-weight when total is zero."""
     if not weights:
         return {}
 

@@ -1,9 +1,4 @@
-"""Sidebar rendering package.
-
-Public API:
-    render_sidebar(query_demo, query_autorun) -> SidebarState
-    SidebarState — frozen snapshot of all sidebar inputs.
-"""
+"""Sidebar package — public API: render_sidebar(), SidebarState."""
 from __future__ import annotations
 
 import streamlit as st
@@ -28,7 +23,6 @@ def render_sidebar(
     query_demo: bool = False,
     query_autorun: bool = False,
 ) -> SidebarState:
-    """Render the FinPort sidebar and return a snapshot of all selected inputs."""
     init_portfolio_state()
 
     with st.sidebar:

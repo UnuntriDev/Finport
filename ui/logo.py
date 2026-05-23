@@ -1,4 +1,4 @@
-"""FinPort inline SVG logo helpers."""
+"""Inline SVG logo."""
 
 
 def _logo_icon_svg(size: int) -> str:
@@ -39,7 +39,6 @@ def _logo_icon_svg(size: int) -> str:
 
 
 def logo_img(height: int = 44, with_text: bool = True) -> str:
-    """Return HTML for the FinPort logo (icon + wordmark)."""
     icon = _logo_icon_svg(height)
     if not with_text:
         return icon

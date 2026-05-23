@@ -1,4 +1,4 @@
-"""Deterministic offline market data for demos and screenshots."""
+"""Deterministic synthetic price data for offline demos."""
 from __future__ import annotations
 
 import zlib
@@ -27,7 +27,7 @@ _BENCHMARK_SEED = 7
 
 
 def demo_weights_pct(tickers: list[str]) -> dict[str, float]:
-    """Return equal demo weights that sum exactly to 100%."""
+    """Equal weights summing exactly to 100% (residual absorbed by last)."""
     if not tickers:
         return {}
     share = round(100.0 / len(tickers), 2)
@@ -42,11 +42,11 @@ def load_demo_price_data(
     start_date: date,
     end_date: date,
 ) -> tuple[pd.DataFrame, dict[str, str]]:
-    """Generate stable synthetic adjusted-close data for offline demos.
+    """Stable synthetic adjusted-close prices.
 
-    Each individual ticker is generated as ``market_return * beta + idiosyncratic_noise``,
-    so the synthetic ``^GSPC`` benchmark genuinely correlates with the assets
-    and CAPM (beta / alpha / R²) produces meaningful values in demo mode.
+    Each asset is ``beta * market + idiosyncratic_noise`` so the synthetic
+    ^GSPC benchmark genuinely correlates with the portfolio and CAPM stays
+    meaningful in demo mode.
     """
     index = pd.bdate_range(start_date, end_date)
     if len(index) == 0:
@@ -67,13 +67,11 @@ def load_demo_price_data(
 
 
 def _generate_market_returns(n_days: int) -> np.ndarray:
-    """Generate the deterministic market (S&P 500) daily return series."""
     rng = np.random.default_rng(_BENCHMARK_SEED)
     return rng.normal(_BENCHMARK_DRIFT, _BENCHMARK_VOL, n_days)
 
 
 def _generate_asset_path(ticker: str, market_returns: np.ndarray) -> np.ndarray:
-    """Build a deterministic price path correlated with the market via beta."""
     seed = zlib.crc32(ticker.encode("utf-8"))
     rng = np.random.default_rng(seed)
     beta = 0.75 + (seed % 70) / 100

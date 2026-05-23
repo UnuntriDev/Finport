@@ -1,4 +1,4 @@
-"""Returns & Risk tab — per-asset descriptive statistics."""
+"""Returns & Risk tab."""
 from __future__ import annotations
 
 import pandas as pd
@@ -11,7 +11,6 @@ def render_returns_tab(
     result: PortfolioAnalysisResult,
     context: ViewContext,
 ) -> None:
-    """Render per-asset stats table and daily return descriptive statistics."""
     del context
     asset_stats = result.asset_stats
     weights = result.weights

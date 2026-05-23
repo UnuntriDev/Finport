@@ -1,4 +1,4 @@
-"""Export tab — PDF / Excel / CSV downloads."""
+"""Export tab — PDF, Excel and CSV downloads."""
 from __future__ import annotations
 
 import logging
@@ -34,7 +34,6 @@ _CACHE_KEYS = (_PDF_BYTES_KEY, _PDF_ERROR_KEY, _EXCEL_BYTES_KEY, _EXCEL_ERROR_KE
 
 
 def render_export_tab(result: PortfolioAnalysisResult, context: ViewContext) -> None:
-    """Render the export tab: PDF/Excel buttons and raw CSV download links."""
     st.subheader("Download report & data")
     st.markdown(
         muted_paragraph(
@@ -63,10 +62,6 @@ def render_export_tab(result: PortfolioAnalysisResult, context: ViewContext) -> 
         "indicative of future results."
     )
 
-
-# ---------------------------------------------------------------------------
-# Sections
-# ---------------------------------------------------------------------------
 
 def _render_pdf_section(result: PortfolioAnalysisResult, context: ViewContext) -> None:
     st.markdown(export_item_label("PDF Report"), unsafe_allow_html=True)
@@ -143,10 +138,6 @@ def _render_csv_section(result: PortfolioAnalysisResult) -> None:
                 use_container_width=True,
             )
 
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
 
 def _invalidate_caches_if_inputs_changed(
     result: PortfolioAnalysisResult,

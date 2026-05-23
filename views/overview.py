@@ -1,4 +1,4 @@
-"""Overview tab — top-level portfolio metrics, charts and sector breakdown."""
+"""Overview tab — KPI cards, charts and sector breakdown."""
 from __future__ import annotations
 
 import pandas as pd
@@ -25,7 +25,6 @@ from visualization import (
 
 
 def render_overview_tab(result: PortfolioAnalysisResult, context: ViewContext) -> None:
-    """Render the overview tab: KPI cards, prices, drawdown and sector breakdown."""
     _render_primary_metrics(result, context)
     st.markdown(vertical_spacer(20), unsafe_allow_html=True)
     _render_risk_metrics(result, context)
@@ -37,10 +36,6 @@ def render_overview_tab(result: PortfolioAnalysisResult, context: ViewContext) -
     st.divider()
     _render_sector_breakdown(result, context)
 
-
-# ---------------------------------------------------------------------------
-# Sections
-# ---------------------------------------------------------------------------
 
 def _render_primary_metrics(result: PortfolioAnalysisResult, context: ViewContext) -> None:
     ann_ret = result.portfolio_metrics["return"]
@@ -297,12 +292,7 @@ def _render_sector_breakdown(
         )
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
 def _safe_pct_change(final_value: float, initial_value: float) -> float:
-    """Return percentage change (0.0 when initial is non-positive)."""
     if initial_value <= 0:
         return 0.0
     return (final_value / initial_value - 1.0) * 100.0

@@ -1,4 +1,4 @@
-"""Markowitz optimization tab — Max Sharpe, Min Variance, Efficient Frontier."""
+"""Optimization tab — Max Sharpe, Min Variance, Efficient Frontier."""
 from __future__ import annotations
 
 import pandas as pd
@@ -13,7 +13,6 @@ def render_optimization_tab(
     result: PortfolioAnalysisResult,
     context: ViewContext,
 ) -> None:
-    """Render Max Sharpe / Min Variance comparison and efficient frontier chart."""
     del context
     st.subheader("Markowitz Portfolio Optimization")
     st.markdown(

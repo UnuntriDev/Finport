@@ -1,4 +1,4 @@
-"""Top header banner for the analysis dashboard."""
+"""Dashboard header banner (logo, ticker badges, period, date)."""
 from __future__ import annotations
 
 from datetime import date
@@ -10,7 +10,6 @@ from ui.logo import logo_img
 
 
 def render_header(tickers: list[str] | None = None, period: str = "") -> None:
-    """Render the FinPort header with logo, ticker badges, period and today date."""
     col_logo, col_meta = st.columns([3, 1])
 
     with col_logo:

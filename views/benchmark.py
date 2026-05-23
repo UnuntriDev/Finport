@@ -1,4 +1,4 @@
-"""Benchmark tab — vs equal-weight portfolio and vs S&P 500 market index."""
+"""Benchmark tab — equal-weight portfolio and S&P 500 comparison."""
 from __future__ import annotations
 
 import pandas as pd
@@ -13,7 +13,6 @@ def render_benchmark_tab(
     result: PortfolioAnalysisResult,
     context: ViewContext,
 ) -> None:
-    """Render benchmark comparisons (equal-weight + S&P 500)."""
     del context
     _render_equal_weight_section(result)
     st.divider()

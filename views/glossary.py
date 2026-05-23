@@ -14,7 +14,6 @@ def render_glossary_tab(result: PortfolioAnalysisResult, context: ViewContext) -
         unsafe_allow_html=True,
     )
 
-    # Render glossary with 2 columns of expanders
     g_col1, g_col2 = st.columns(2)
     for i, (term, definition) in enumerate(GLOSSARY_TERMS):
         target_col = g_col1 if i % 2 == 0 else g_col2

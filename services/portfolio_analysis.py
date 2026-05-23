@@ -1,4 +1,4 @@
-"""End-to-end portfolio analysis orchestration."""
+"""End-to-end portfolio analytics pipeline."""
 from __future__ import annotations
 
 import numpy as np
@@ -29,7 +29,7 @@ from models import PortfolioAnalysisRequest, PortfolioAnalysisResult
 
 
 class PortfolioAnalysisError(RuntimeError):
-    """Raised when the portfolio analysis cannot produce a valid result."""
+    """Raised when the pipeline cannot produce a valid result."""
 
     def __init__(self, message: str, failed: dict[str, str] | None = None) -> None:
         super().__init__(message)
@@ -39,7 +39,6 @@ class PortfolioAnalysisError(RuntimeError):
 def run_portfolio_analysis(
     request: PortfolioAnalysisRequest,
 ) -> PortfolioAnalysisResult:
-    """Run the complete FinPort analytics pipeline."""
     prices, failed = _load_prices(
         request,
         request.tickers,

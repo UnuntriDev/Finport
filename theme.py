@@ -1,4 +1,4 @@
-"""Shared UI theme values for FinPort."""
+"""Shared UI colour palette."""
 
 COLORS = {
     "bg": "#020617",

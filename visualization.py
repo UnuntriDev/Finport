@@ -1,8 +1,4 @@
-"""Plotly chart builders for FinPort.
-
-Each function returns a `plotly.graph_objects.Figure` so the app layer can
-render it with `st.plotly_chart`.
-"""
+"""Plotly chart builders. Each function returns a ``go.Figure``."""
 from __future__ import annotations
 
 import pandas as pd
@@ -94,7 +90,7 @@ def plot_correlation_heatmap(corr: pd.DataFrame) -> go.Figure:
 
 
 def plot_monte_carlo(sims: pd.DataFrame) -> go.Figure:
-    """Show a sample of simulated paths plus median and 5/95 percentile bands."""
+    """Thinned sample of paths plus median and 5/95 percentile bands."""
     fig = go.Figure()
 
     sample_cols = sims.columns[:: max(1, sims.shape[1] // 200)]
@@ -157,7 +153,6 @@ def plot_weights_comparison(custom: pd.Series, equal: pd.Series) -> go.Figure:
 
 
 def plot_drawdown(drawdown: pd.Series, max_dd: float, trough_date) -> go.Figure:
-    """Underwater chart — drawdown over time with peak/trough annotation."""
     fig = go.Figure()
     fig.add_trace(
         go.Scatter(
@@ -199,7 +194,7 @@ def plot_efficient_frontier(
     max_sharpe_point: dict,
     min_var_point: dict,
 ) -> go.Figure:
-    """Markowitz efficient frontier with key portfolios overlaid."""
+    """Frontier curve plus individual assets and the three optimal portfolios."""
     fig = go.Figure()
 
     fig.add_trace(
@@ -277,7 +272,6 @@ def _add_portfolio_marker(
 
 
 def plot_sector_breakdown(sector_weights: dict[str, float]) -> go.Figure:
-    """Pie chart showing portfolio allocation broken down by sector."""
     labels = list(sector_weights.keys())
     values = list(sector_weights.values())
     fig = go.Figure(
@@ -311,7 +305,7 @@ def plot_portfolio_vs_market(
     market_value: pd.Series,
     market_label: str = "S&P 500",
 ) -> go.Figure:
-    """Side-by-side comparison of portfolio and market benchmark, normalized."""
+    """Portfolio vs benchmark, both rebased to 100."""
     p_norm = (port_value / port_value.iloc[0]) * 100
     m_norm = (market_value / market_value.iloc[0]) * 100
 

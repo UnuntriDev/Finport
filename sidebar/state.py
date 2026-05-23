@@ -1,4 +1,4 @@
-"""Sidebar state definitions and session-state initialisation."""
+"""Sidebar state and session-state initialisation."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -9,8 +9,6 @@ import streamlit as st
 
 @dataclass(frozen=True)
 class SidebarState:
-    """Snapshot of all user-controlled sidebar inputs at render time."""
-
     tickers: list[str]
     weights_pct: dict[str, float]
     weights_valid: bool
@@ -26,11 +24,8 @@ class SidebarState:
 
 
 def init_portfolio_state() -> None:
-    """Initialise session-state for the portfolio configuration widgets.
-
-    All widget-keyed values (date inputs, weight number_inputs) are written
-    here so subsequent reads/writes go through callbacks rather than mutating
-    widget state after instantiation (which Streamlit forbids).
+    """Seed widget-keyed session state. Streamlit forbids mutating widget state
+    after the widget renders, so all defaults must land here first.
     """
     ss = st.session_state
     if "fp_tickers" not in ss:

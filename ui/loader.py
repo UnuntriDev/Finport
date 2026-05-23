@@ -1,4 +1,4 @@
-"""Loading overlay markup used while FinPort runs portfolio analysis."""
+"""Loading overlay shown during portfolio analysis."""
 from __future__ import annotations
 
 MONEY_LOADER_HTML = (

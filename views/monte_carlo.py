@@ -1,4 +1,4 @@
-"""Monte Carlo simulation tab."""
+"""Monte Carlo tab."""
 from __future__ import annotations
 
 import streamlit as st
@@ -26,7 +26,6 @@ def render_monte_carlo_tab(
     result: PortfolioAnalysisResult,
     context: ViewContext,
 ) -> None:
-    """Render the Monte Carlo simulation tab with summary metrics and paths chart."""
     initial = context.initial_investment
     st.subheader("Monte Carlo simulation of portfolio value")
 
@@ -91,7 +90,6 @@ def _var_card(var_95: float) -> str:
 
 
 def _pct_vs_initial(value: float, initial: float) -> float:
-    """Return percentage change vs initial (0.0 when initial is non-positive)."""
     if initial <= 0:
         return 0.0
     return (value / initial - 1.0) * 100.0

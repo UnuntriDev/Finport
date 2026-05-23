@@ -1,8 +1,4 @@
-"""PDF and CSV report exporter for FinPort.
-
-Generates a professional PDF summary report and CSV data dumps
-that users can download from the Export tab.
-"""
+"""PDF / Excel / CSV report builders."""
 from __future__ import annotations
 
 import io
@@ -12,15 +8,11 @@ import pandas as pd
 from fpdf import FPDF
 from fpdf.enums import XPos, YPos
 
-# ---------------------------------------------------------------------------
-# PDF builder
-# ---------------------------------------------------------------------------
 
 class _FinPortPDF(FPDF):
-    """Subclass with FinPort header, footer, and table helper."""
+    """FPDF subclass with FinPort branding, footer and table helpers."""
 
     def header(self) -> None:
-        # Blue accent bar across the top
         self.set_fill_color(37, 99, 235)
         self.rect(0, 0, 210, 3, style="F")
         self.ln(6)
@@ -61,19 +53,12 @@ class _FinPortPDF(FPDF):
         )
 
     def ensure_space(self, needed_mm: float) -> None:
-        """Trigger a page break if less than `needed_mm` of vertical room remains.
-
-        Prevents a section title or table from being orphaned at the bottom
-        of a page when the body would otherwise spill onto the next one.
-        """
+        """Force a page break when fewer than ``needed_mm`` of body remain."""
         if self.get_y() + needed_mm > self.h - self.b_margin:
             self.add_page()
 
     def section_title(self, title: str, keep_with_next_mm: float = 0.0) -> None:
-        """Render a section heading. If ``keep_with_next_mm`` is provided,
-        first force a page break when the title plus that much content would
-        not fit on the current page (i.e., keep title together with what follows).
-        """
+        """Section heading. ``keep_with_next_mm`` reserves space for the next block."""
         if keep_with_next_mm:
             self.ensure_space(10 + keep_with_next_mm)
         self.set_font("Helvetica", "B", 11)
@@ -93,12 +78,10 @@ class _FinPortPDF(FPDF):
     def data_table(self, headers: list[str], rows: list[list[str]]) -> None:
         col_w = 185.0 / len(headers)
 
-        # Make sure at least the header + first 3 rows fit on the current
-        # page; if not, start a new one so the table is not orphaned.
+        # Reserve enough space for header + first 3 rows to avoid orphans.
         min_block = 7 + min(len(rows), 3) * 6 + 4
         self.ensure_space(min_block)
 
-        # Header row
         self.set_font("Helvetica", "B", 9)
         self.set_fill_color(30, 58, 138)
         self.set_text_color(255, 255, 255)
@@ -106,7 +89,6 @@ class _FinPortPDF(FPDF):
             self.cell(col_w, 7, h, border=False, fill=True)
         self.ln()
 
-        # Data rows with alternating shading
         self.set_font("Helvetica", "", 9)
         for i, row in enumerate(rows):
             fill = i % 2 == 0
@@ -145,12 +127,10 @@ def build_pdf(
     min_var_weights: pd.Series | None = None,
     min_var_metrics: dict | None = None,
 ) -> bytearray:
-    """Build a PDF summary report and return it as a bytearray."""
     pdf = _FinPortPDF()
     pdf.set_auto_page_break(auto=True, margin=18)
     pdf.add_page()
 
-    # Report date
     pdf.set_font("Helvetica", "", 9)
     pdf.set_text_color(148, 163, 184)
     pdf.cell(
@@ -163,7 +143,6 @@ def build_pdf(
     )
     pdf.ln(2)
 
-    # --- Portfolio Configuration ---
     pdf.section_title("Portfolio Configuration")
     pdf.kv_row("Assets", ", ".join(tickers))
     pdf.kv_row("Analysis period", f"{start_date}  -  {end_date}")
@@ -171,7 +150,6 @@ def build_pdf(
     pdf.kv_row("Risk-free rate", f"{risk_free_rate * 100:.2f}% p.a.")
     pdf.ln(4)
 
-    # --- Key Metrics ---
     pdf.section_title("Key Portfolio Metrics")
     ann_ret = port_metrics["return"]
     ann_vol = port_metrics["volatility"]
@@ -190,7 +168,6 @@ def build_pdf(
     pdf.kv_row("Final portfolio value", f"${final_val:,.2f}  ({total_ret:+.2f}% total)")
     pdf.ln(4)
 
-    # --- CAPM / Market exposure ---
     if beta is not None:
         pdf.section_title("Market Exposure (CAPM vs S&P 500)")
         pdf.kv_row("Beta", f"{beta:.2f}")
@@ -198,9 +175,8 @@ def build_pdf(
         pdf.kv_row("R-squared", f"{r_squared or 0:.2f}")
         pdf.ln(4)
 
-    # --- Optimal portfolios ---
     if max_sharpe_metrics is not None and min_var_metrics is not None:
-        # 4 rows (header + 3 portfolios) * 6mm + padding
+        # 32mm = 4 rows × 6mm + padding (header + 3 portfolios).
         pdf.section_title("Optimal Portfolios (Markowitz)", keep_with_next_mm=32)
         opt_headers = ["Portfolio", "Ann. Return", "Ann. Volatility", "Sharpe Ratio"]
         custom_sh = (ann_ret - risk_free_rate) / ann_vol if ann_vol > 0 else 0.0
@@ -236,7 +212,6 @@ def build_pdf(
         ]
         pdf.data_table(opt_headers, opt_rows)
 
-        # Weights comparison — needs ~6mm per ticker + header
         weights_table_height = 12 + len(weights) * 6
         pdf.section_title(
             "Optimal Weights Comparison",
@@ -255,7 +230,6 @@ def build_pdf(
             ])
         pdf.data_table(w_headers, w_rows)
 
-    # --- Per-Asset Statistics ---
     per_asset_height = 12 + len(asset_stats) * 6
     pdf.section_title(
         "Per-Asset Statistics (Annualized)",
@@ -275,7 +249,6 @@ def build_pdf(
     ]
     pdf.data_table(headers, rows)
 
-    # --- Monte Carlo ---
     if mc_p50 is not None:
         pdf.section_title("Monte Carlo Simulation Summary")
         horizon_label = f"{mc_horizon_days} trading days" if mc_horizon_days else "N/A"
@@ -289,7 +262,6 @@ def build_pdf(
         pdf.kv_row("Value at Risk 95%", f"${var_95:,.2f}")
         pdf.ln(4)
 
-    # --- Disclaimer ---
     pdf.section_title("Disclaimer")
     pdf.set_font("Helvetica", "I", 8)
     pdf.set_text_color(100, 116, 139)
@@ -304,10 +276,6 @@ def build_pdf(
 
     return pdf.output()
 
-
-# ---------------------------------------------------------------------------
-# CSV helpers
-# ---------------------------------------------------------------------------
 
 def prices_to_csv(prices: pd.DataFrame) -> str:
     return prices.reset_index().to_csv(index=False)
@@ -335,13 +303,9 @@ def build_excel_workbook(
     sortino: float | None = None,
     max_dd: float | None = None,
 ) -> bytes:
-    """Build a multi-sheet .xlsx workbook combining all key data.
-
-    Sheets: Summary, Prices, Returns, Per-Asset Stats, Portfolio Value.
-    """
+    """Multi-sheet workbook: Summary, Per-Asset Stats, Prices, Returns, Portfolio Value."""
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as writer:
-        # --- Summary sheet ----------------------------------------------
         summary_rows = [
             ("Annualized return", f"{port_metrics['return'] * 100:.2f}%"),
             (
@@ -361,19 +325,16 @@ def build_excel_workbook(
         summary_df = pd.DataFrame(summary_rows, columns=["Metric", "Value"])
         summary_df.to_excel(writer, sheet_name="Summary", index=False)
 
-        # --- Per-asset stats with weights -------------------------------
         stats_export = asset_stats.copy()
         stats_export.insert(0, "weight", weights.reindex(stats_export.index).fillna(0.0))
         stats_export.to_excel(writer, sheet_name="Per-Asset Stats")
 
-        # --- Prices, Returns, Portfolio Value ---------------------------
         prices.to_excel(writer, sheet_name="Prices")
         returns.to_excel(writer, sheet_name="Daily Returns")
         pd.DataFrame({"portfolio_value": port_value}).to_excel(
             writer, sheet_name="Portfolio Value"
         )
 
-        # Auto-width columns for readability
         for sheet_name in writer.sheets:
             sheet = writer.sheets[sheet_name]
             for col in sheet.columns:

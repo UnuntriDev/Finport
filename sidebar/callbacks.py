@@ -1,4 +1,4 @@
-"""Streamlit widget callbacks for the sidebar (run before next render)."""
+"""Streamlit widget callbacks for the sidebar."""
 from __future__ import annotations
 
 import json
@@ -13,7 +13,7 @@ from ticker_utils import normalize_ticker
 
 
 def redistribute_equal_locked_session() -> None:
-    """Split 100% over unlocked tickers, keeping locked weights fixed."""
+    """Split 100% equally across unlocked tickers, locked weights unchanged."""
     ss = st.session_state
     tickers = ss.fp_tickers
     if not tickers:
@@ -25,16 +25,13 @@ def redistribute_equal_locked_session() -> None:
 
 
 def add_ticker_to_state(ticker: str, open_key: str | None = None) -> bool:
-    """Add one ticker to session state with shared validation and rebalancing."""
     ss = st.session_state
     if open_key:
         ss[open_key] = True
 
     ticker = normalize_ticker(ticker)
     if not ticker:
-        ss["fp_ticker_error"] = (
-            "Invalid ticker. Use letters, digits, '.', '-', '^', '='."
-        )
+        ss["fp_ticker_error"] = "Invalid ticker. Use letters, digits, '.', '-', '^', '='."
         return False
     if ticker in ss.fp_tickers:
         ss["fp_ticker_error"] = f"'{ticker}' is already in the portfolio."
@@ -52,7 +49,6 @@ def add_ticker_to_state(ticker: str, open_key: str | None = None) -> bool:
 
 
 def cb_add_ticker() -> None:
-    """Handle ➕ Add button — read text input and add to portfolio."""
     ss = st.session_state
     raw = ss.get("fp_new_ticker_input", "")
     ticker = normalize_ticker(raw)
@@ -68,7 +64,6 @@ def cb_add_ticker() -> None:
 
 
 def cb_remove_ticker(ticker: str) -> None:
-    """Handle chip ✕ click — remove ticker and rebalance."""
     ss = st.session_state
     if ticker not in ss.fp_tickers:
         return
@@ -79,27 +74,21 @@ def cb_remove_ticker(ticker: str) -> None:
 
 
 def cb_toggle_lock(ticker: str) -> None:
-    """Handle 🔒/🔓 button — flip the lock for a single ticker."""
     ss = st.session_state
     ss.fp_locks[ticker] = not ss.fp_locks.get(ticker, False)
 
 
 def cb_equal_weight() -> None:
-    """Handle "Equal" button — redistribute 100% across unlocked tickers."""
     redistribute_equal_locked_session()
 
 
 def cb_quick_add(ticker: str, open_key: str | None = None) -> None:
-    """Add a popular ticker (e.g. crypto) without typing.
-
-    ``open_key`` is a session-state flag set to True so the triggering
-    expander stays open across the Streamlit rerun.
-    """
+    """Add a preset ticker. `open_key` keeps the triggering expander open."""
     add_ticker_to_state(ticker, open_key=open_key)
 
 
 def cb_weight_changed(ticker: str) -> None:
-    """Auto-rebalance other unlocked weights to keep total at 100%."""
+    """Rebalance the other unlocked weights to keep the total at 100%."""
     ss = st.session_state
     if not ss.fp_tickers:
         return
@@ -108,17 +97,13 @@ def cb_weight_changed(ticker: str) -> None:
         for symbol in ss.fp_tickers
     }
     updated = rebalance_after_weight_change(
-        ss.fp_tickers,
-        weights,
-        ss.fp_locks,
-        ticker,
+        ss.fp_tickers, weights, ss.fp_locks, ticker,
     )
     for symbol, weight in updated.items():
         ss[f"w_{symbol}"] = weight
 
 
 def cb_load_config() -> None:
-    """Apply a previously-saved portfolio configuration from an uploaded JSON."""
     ss = st.session_state
     file = ss.get("fp_config_uploader")
     if file is None:
@@ -144,14 +129,11 @@ def cb_load_config() -> None:
     if config.end is not None:
         ss.fp_end_input = config.end
 
-    ss["fp_config_loaded_msg"] = (
-        f"Loaded {len(ss.fp_tickers)} tickers from config."
-    )
+    ss["fp_config_loaded_msg"] = f"Loaded {len(ss.fp_tickers)} tickers from config."
     ss["fp_config_error"] = ""
 
 
 def build_config_json() -> str:
-    """Serialize the current portfolio configuration as JSON."""
     ss = st.session_state
     config = {
         "version": 1,

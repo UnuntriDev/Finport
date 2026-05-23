@@ -1,4 +1,4 @@
-"""Landing page markup shown before the first analysis run."""
+"""Landing page shown before the first analysis run."""
 from __future__ import annotations
 
 import streamlit as st
@@ -19,7 +19,6 @@ _FEATURES = (
 
 
 def render_landing_page() -> None:
-    """Render the centred 'configure your portfolio' welcome card."""
     big_logo = logo_img(height=72, with_text=False)
     feature_cards = "".join(
         f'<div style="{_FEATURE_CARD_STYLE}">{feature}</div>'

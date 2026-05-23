@@ -1,8 +1,7 @@
-"""Market data loader.
+"""Yahoo Finance loader with Streamlit caching.
 
-Wraps `yfinance` with Streamlit caching so the same query is not refetched
-on every UI interaction. Downloads each ticker individually so newer yfinance
-versions cannot silently drop tickers due to MultiIndex restructuring.
+Downloads each ticker separately so newer yfinance versions can't silently
+drop tickers via MultiIndex restructuring.
 """
 from __future__ import annotations
 
@@ -18,13 +17,9 @@ from ticker_utils import normalize_ticker
 
 logger = logging.getLogger(__name__)
 
-# Yahoo Finance / yfinance failure modes we want to translate into a friendly
-# `failed[ticker]` reason rather than propagate as an unhandled exception.
+# Expected yfinance failure modes — translated into friendly failed[ticker] reasons.
 _YF_RECOVERABLE_ERRORS: tuple[type[BaseException], ...] = (
-    OSError,           # urllib / sockets / DNS
-    ValueError,        # bad response payload
-    RuntimeError,      # yfinance internal "no data" runtimes
-    KeyError,          # missing column on unusual responses
+    OSError, ValueError, RuntimeError, KeyError,
 )
 
 _NO_DATA_REASON = "No usable data returned."
@@ -36,12 +31,7 @@ def load_price_data(
     start: date,
     end: date,
 ) -> tuple[pd.DataFrame, dict[str, str]]:
-    """Download adjusted close prices for every requested ticker.
-
-    Returns ``(prices, failed)`` where ``prices`` is a wide DataFrame indexed
-    by date (one column per ticker) and ``failed`` is a ``{ticker: reason}``
-    dict explaining *why* each failing ticker was excluded.
-    """
+    """Return (prices, failed). `failed` maps ticker → reason for exclusion."""
     failed: dict[str, str] = {}
     valid_tickers = _normalize_input_tickers(tickers, failed)
     if not valid_tickers:
@@ -65,24 +55,14 @@ def load_price_data(
 
 @st.cache_data(show_spinner=False, ttl=60 * 60 * 6)
 def load_sector_info(tickers: Sequence[str]) -> dict[str, str]:
-    """Fetch sector (industry classification) for each ticker.
-
-    Falls back to 'Cryptocurrency', 'ETF / Fund', 'Market Index', or 'Others'
-    depending on instrument type. Cached for 6 hours since sector data
-    changes very rarely.
-    """
+    """Sector per ticker. Falls back to quote-type label or 'Others'."""
     return {ticker: _resolve_sector(ticker) for ticker in tickers}
 
-
-# ---------------------------------------------------------------------------
-# Helpers (private)
-# ---------------------------------------------------------------------------
 
 def _normalize_input_tickers(
     tickers: Sequence[str],
     failed: dict[str, str],
 ) -> list[str]:
-    """Validate and deduplicate ticker symbols while preserving original order."""
     seen: list[str] = []
     for raw_ticker in tickers:
         normalized = normalize_ticker(raw_ticker)
@@ -100,11 +80,6 @@ def _download_ticker_series(
     end: date,
     failed: dict[str, str],
 ) -> pd.Series | None:
-    """Download a single ticker's adjusted close series.
-
-    Returns the series on success, or ``None`` while populating ``failed``
-    with a user-friendly reason on any expected failure mode.
-    """
     try:
         raw = yf.download(
             tickers=ticker,
@@ -115,16 +90,13 @@ def _download_ticker_series(
             multi_level_index=False,
         )
     except _YF_RECOVERABLE_ERRORS as exc:
-        logger.warning(
-            "Failed to download ticker %s from Yahoo Finance", ticker, exc_info=True,
-        )
+        logger.warning("Failed to download %s from Yahoo Finance", ticker, exc_info=True)
         failed[ticker] = f"Network/API error: {type(exc).__name__}."
         return None
 
     if raw is None or raw.empty:
         failed[ticker] = (
-            "Symbol not found on Yahoo Finance "
-            "(possibly delisted or wrong symbol)."
+            "Symbol not found on Yahoo Finance (possibly delisted or wrong symbol)."
         )
         return None
 
@@ -138,8 +110,7 @@ def _download_ticker_series(
 
     if series.dropna().empty:
         failed[ticker] = (
-            "No price data in the selected date range "
-            "(asset may not have existed yet)."
+            "No price data in the selected date range (asset may not have existed yet)."
         )
         return None
 
@@ -151,18 +122,15 @@ def _record_dropped_tickers(
     surviving: pd.Index,
     failed: dict[str, str],
 ) -> None:
-    """Record tickers that survived initial download but were dropped on align."""
     surviving_set = set(surviving)
     for ticker in requested:
         if ticker not in surviving_set and ticker not in failed:
             failed[ticker] = (
-                "Insufficient overlapping trading days with other selected "
-                "tickers (excluded after aligning dates)."
+                "Insufficient overlapping trading days with other selected tickers."
             )
 
 
 def _resolve_sector(ticker: str) -> str:
-    """Look up sector or classify by quote type. Falls back to 'Others'."""
     try:
         info = yf.Ticker(ticker).info or {}
     except _YF_RECOVERABLE_ERRORS:

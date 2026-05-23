@@ -1,4 +1,4 @@
-"""Reusable Streamlit dialogs for FinPort."""
+"""Modal dialogs."""
 from __future__ import annotations
 
 from html import escape
@@ -8,7 +8,6 @@ import streamlit as st
 
 @st.dialog("⚠️ Some tickers could not be loaded")
 def show_failed_tickers_dialog(failed: dict[str, str], failed_key: str) -> None:
-    """Render a dismissible dialog for non-loadable tickers."""
     st.markdown("The following tickers were **excluded from the analysis**:")
     for ticker, reason in failed.items():
         safe_ticker = escape(str(ticker))

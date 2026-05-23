@@ -1,4 +1,4 @@
-"""Shared Streamlit CSS for FinPort."""
+"""Global CSS injected into the Streamlit app."""
 from __future__ import annotations
 
 GLOBAL_CSS = """

@@ -7,8 +7,7 @@ from ui_components import metric_card, muted_paragraph
 
 
 def render_assumptions_tab(result: PortfolioAnalysisResult, context: ViewContext) -> None:
-    """Render the assumptions tab explaining model conventions and data sources."""
-    del result  # not currently used; reserved for future per-result assumptions
+    del result
     st.subheader("Model assumptions")
     st.markdown(
         muted_paragraph(

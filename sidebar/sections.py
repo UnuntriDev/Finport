@@ -1,4 +1,4 @@
-"""Sidebar section renderers — each function renders one logical block."""
+"""Sidebar section renderers — one function per logical block."""
 from __future__ import annotations
 
 from datetime import date
@@ -71,10 +71,6 @@ section[data-testid="stSidebar"] .fp-qa-row [data-testid="column"] {
 
 
 def render_assets_section() -> list[str]:
-    """Render the assets section (text input, chips, quick-add grids).
-
-    Returns the current ticker list.
-    """
     st.markdown(sidebar_section_header("◆", "Assets"), unsafe_allow_html=True)
 
     add_col, btn_col = st.columns([3, 1])
@@ -101,7 +97,6 @@ def render_assets_section() -> list[str]:
 
 
 def render_dates_section() -> tuple[date | None, date | None]:
-    """Render start/end date inputs and inline validation."""
     st.divider()
     st.markdown(sidebar_section_header("📅", "Period"), unsafe_allow_html=True)
 
@@ -118,7 +113,6 @@ def render_dates_section() -> tuple[date | None, date | None]:
 
 
 def render_weights_section(tickers: list[str]) -> tuple[dict[str, float], bool]:
-    """Render the weight number inputs, lock buttons and allocation donut."""
     st.divider()
     header_l, header_r = st.columns([3, 2])
     with header_l:
@@ -155,7 +149,6 @@ def render_weights_section(tickers: list[str]) -> tuple[dict[str, float], bool]:
 
 
 def render_assumptions_section() -> tuple[float, float]:
-    """Render risk-free rate slider and initial investment text input."""
     st.divider()
     st.markdown(sidebar_section_header("⚙", "Assumptions"), unsafe_allow_html=True)
 
@@ -184,7 +177,6 @@ def render_assumptions_section() -> tuple[float, float]:
 
 
 def render_monte_carlo_section() -> tuple[int, int, str]:
-    """Render Monte Carlo horizon, simulation count and method controls."""
     st.divider()
     st.markdown(sidebar_section_header("🎲", "Monte Carlo"), unsafe_allow_html=True)
 
@@ -218,7 +210,6 @@ def render_monte_carlo_section() -> tuple[int, int, str]:
 
 
 def render_demo_section(query_demo: bool) -> bool:
-    """Render the demo-mode toggle."""
     st.divider()
     demo_mode = st.toggle(
         "Demo / offline mode",
@@ -237,7 +228,6 @@ def render_demo_section(query_demo: bool) -> bool:
 
 
 def render_save_load_section(tickers: list[str]) -> None:
-    """Render the Save / Load Configuration expander."""
     st.divider()
     with st.expander("💾 Save / Load Configuration", expanded=False):
         st.download_button(
@@ -270,7 +260,6 @@ def render_run_button(
     demo_mode: bool,
     query_autorun: bool,
 ) -> bool:
-    """Render the Run analysis button and compute its enabled state."""
     st.divider()
     missing = _missing_requirements(
         tickers=tickers,
@@ -291,10 +280,6 @@ def render_run_button(
     )
     return run_clicked or (query_autorun and demo_mode)
 
-
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
 
 def _render_ticker_chips() -> None:
     tickers = st.session_state.fp_tickers
@@ -420,7 +405,6 @@ def _missing_requirements(
     initial_investment: float,
     demo_mode: bool,
 ) -> list[str]:
-    """Return a list of human-readable missing inputs (empty if all OK)."""
     missing: list[str] = []
     if len(tickers) < 2 and not demo_mode:
         missing.append("at least 2 tickers")

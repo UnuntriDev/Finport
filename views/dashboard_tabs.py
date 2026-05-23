@@ -1,4 +1,4 @@
-"""Dashboard tab router for FinPort."""
+"""Dashboard tab router."""
 from __future__ import annotations
 
 from datetime import date
@@ -27,7 +27,6 @@ def render_dashboard_tabs(
     mc_method_label: str,
     demo_mode: bool = False,
 ) -> None:
-    """Render all analysis dashboard tabs."""
     context = ViewContext(
         start_date=start_date,
         end_date=end_date,

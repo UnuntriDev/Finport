@@ -1,8 +1,4 @@
-"""FinPort — Streamlit entry point.
-
-Wires together user inputs (sidebar), data loading, analysis, and
-visualization into a tabbed fintech-style dashboard.
-"""
+"""FinPort Streamlit entry point."""
 from __future__ import annotations
 
 import logging
@@ -39,12 +35,10 @@ _HAS_RUN_KEY = "fp_has_run"
 _RESET_PREFIXES = ("fp_", "w_")
 
 
-# ---------------------------------------------------------------------------
-# Helpers (defined first because Streamlit reruns this script top-down)
-# ---------------------------------------------------------------------------
+# Helpers are declared up-front because Streamlit reruns this module top-down.
 
 def _build_analysis_request(state: SidebarState) -> PortfolioAnalysisRequest:
-    """Resolve effective inputs (demo mode fills any empty fields)."""
+    """Apply demo-mode fallbacks for any empty input fields."""
     tickers = state.tickers
     weights_pct = state.weights_pct
     start_date = state.start_date
@@ -77,7 +71,7 @@ def _build_analysis_request(state: SidebarState) -> PortfolioAnalysisRequest:
 
 
 def _validate_analysis_inputs(request: PortfolioAnalysisRequest) -> None:
-    """Defensive validation: sidebar disables Run but query params can bypass it."""
+    """Query params can bypass the disabled Run button, so re-validate here."""
     try:
         validate_request(request)
     except ValidationError as exc:
@@ -86,7 +80,6 @@ def _validate_analysis_inputs(request: PortfolioAnalysisRequest) -> None:
 
 
 def _maybe_show_failed_dialog(failed: dict[str, str]) -> None:
-    """Show the failed-ticker modal unless it was already dismissed."""
     if not failed or st.session_state.get(_DIALOG_SUPPRESSED_KEY, False):
         return
     failed_key = "|".join(sorted(failed.keys()))
@@ -95,7 +88,6 @@ def _maybe_show_failed_dialog(failed: dict[str, str]) -> None:
 
 
 def _render_reset_button() -> None:
-    """Render the 'New analysis' button that wipes all FinPort session state."""
     _, right = st.columns([5, 1])
     with right:
         clicked = st.button(
@@ -113,9 +105,6 @@ def _render_reset_button() -> None:
     st.rerun()
 
 
-# ---------------------------------------------------------------------------
-# Page configuration
-# ---------------------------------------------------------------------------
 st.set_page_config(
     page_title="FinPort — Portfolio Analytics",
     page_icon="📈",
@@ -124,10 +113,6 @@ st.set_page_config(
 )
 st.markdown(GLOBAL_CSS, unsafe_allow_html=True)
 
-
-# ---------------------------------------------------------------------------
-# Sidebar — user inputs
-# ---------------------------------------------------------------------------
 sidebar_state = render_sidebar(
     query_demo=st.query_params.get("demo") == "1",
     query_autorun=st.query_params.get("autorun") == "1",
@@ -142,17 +127,9 @@ if not (sidebar_state.run or st.session_state.get(_HAS_RUN_KEY, False)):
     render_landing_page()
     st.stop()
 
-
-# ---------------------------------------------------------------------------
-# Build the analysis request + validation
-# ---------------------------------------------------------------------------
 analysis_request = _build_analysis_request(sidebar_state)
 _validate_analysis_inputs(analysis_request)
 
-
-# ---------------------------------------------------------------------------
-# Loading animation + analysis pipeline
-# ---------------------------------------------------------------------------
 loading_overlay = st.empty()
 loader_start = time.time()
 if sidebar_state.run:
@@ -185,10 +162,6 @@ period_str = (
 )
 render_header(tickers=list(result.prices.columns), period=period_str)
 
-
-# ---------------------------------------------------------------------------
-# Reset button + dashboard tabs
-# ---------------------------------------------------------------------------
 _render_reset_button()
 render_dashboard_tabs(
     result=result,

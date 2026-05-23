@@ -1,4 +1,4 @@
-"""Correlation matrix tab."""
+"""Correlation tab."""
 from __future__ import annotations
 
 import streamlit as st
@@ -11,7 +11,6 @@ def render_correlation_tab(
     result: PortfolioAnalysisResult,
     context: ViewContext,
 ) -> None:
-    """Render the return correlation matrix heatmap."""
     del context
     st.subheader("Return correlation matrix")
     st.plotly_chart(plot_correlation_heatmap(result.correlation), use_container_width=True)

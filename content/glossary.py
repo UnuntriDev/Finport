@@ -1,4 +1,4 @@
-"""Financial glossary content shown in the app."""
+"""Glossary entries rendered on the Glossary tab."""
 
 GLOSSARY_TERMS = [
     (
