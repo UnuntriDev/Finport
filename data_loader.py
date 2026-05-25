@@ -17,9 +17,13 @@ from ticker_utils import normalize_ticker
 
 logger = logging.getLogger(__name__)
 
-# Expected yfinance failure modes — translated into friendly failed[ticker] reasons.
-_YF_RECOVERABLE_ERRORS: tuple[type[BaseException], ...] = (
-    OSError, ValueError, RuntimeError, KeyError,
+# yfinance raises a moving target of exception classes (YFRateLimitError,
+# YFinanceError, plain Exception from `requests` etc.). We catch broadly here
+# because Streamlit Cloud shares outgoing IPs and *will* hit rate limits — the
+# app must degrade gracefully, not crash.
+_NETWORK_ERROR_MESSAGES = (
+    "Yahoo Finance is rate-limiting requests right now. "
+    "Try again in a few minutes or enable Demo mode in the sidebar."
 )
 
 _NO_DATA_REASON = "No usable data returned."
@@ -89,9 +93,9 @@ def _download_ticker_series(
             progress=False,
             multi_level_index=False,
         )
-    except _YF_RECOVERABLE_ERRORS as exc:
+    except Exception as exc:  # noqa: BLE001 — yfinance error hierarchy is unstable
         logger.warning("Failed to download %s from Yahoo Finance", ticker, exc_info=True)
-        failed[ticker] = f"Network/API error: {type(exc).__name__}."
+        failed[ticker] = _format_network_error(exc)
         return None
 
     if raw is None or raw.empty:
@@ -133,7 +137,7 @@ def _record_dropped_tickers(
 def _resolve_sector(ticker: str) -> str:
     try:
         info = yf.Ticker(ticker).info or {}
-    except _YF_RECOVERABLE_ERRORS:
+    except Exception:  # noqa: BLE001 — see _download_ticker_series
         logger.warning("Failed to load sector info for %s", ticker, exc_info=True)
         return "Others"
 
@@ -149,3 +153,10 @@ def _resolve_sector(ticker: str) -> str:
     if quote_type == "INDEX":
         return "Market Index"
     return "Others"
+
+
+def _format_network_error(exc: BaseException) -> str:
+    name = type(exc).__name__
+    if "RateLimit" in name:
+        return _NETWORK_ERROR_MESSAGES
+    return f"Network/API error: {name}."
