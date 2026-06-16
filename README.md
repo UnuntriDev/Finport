@@ -23,7 +23,7 @@ run Monte Carlo simulations, generate optimization results, and export reports.
 
 ### Project architecture
 
-![FinPort architecture](docs/screenshots/architecture.png)
+![FinPort architecture](docs/screenshots/architecture.svg)
 
 ## Key Features
 

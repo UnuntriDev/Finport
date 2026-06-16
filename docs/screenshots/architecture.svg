@@ -1,0 +1,100 @@
+<svg width="1200" height="820" viewBox="0 0 1200 820" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    text { font-family: 'Segoe UI', 'Inter', system-ui, sans-serif; }
+    .title { font-size: 36px; font-weight: 700; fill: #e2e8f0; }
+    .title-accent { fill: #ef4444; }
+    .subtitle { font-size: 16px; fill: #94a3b8; }
+    .badge { font-size: 15px; fill: #64748b; }
+    .box-title { font-size: 16px; font-weight: 600; }
+    .box-sub { font-size: 13px; fill: #94a3b8; }
+    .sep-label { font-size: 12px; fill: #475569; }
+  </style>
+
+  <rect width="1200" height="820" rx="16" fill="#020617"/>
+
+  <!-- Header -->
+  <text x="48" y="52" class="title">Fin<tspan class="title-accent">Port</tspan></text>
+  <text x="48" y="76" class="subtitle">Separated Streamlit UI, service layer and quant logic</text>
+  <text x="1152" y="52" text-anchor="end" class="badge">Architecture</text>
+
+  <!-- Row 1: UI layer (blue) -->
+  <rect x="60" y="110" width="320" height="90" rx="12" fill="#0c2d5a" stroke="#1d5faa" stroke-width="1"/>
+  <text x="220" y="148" text-anchor="middle" class="box-title" fill="#5ba4f5">app.py</text>
+  <text x="220" y="172" text-anchor="middle" class="box-sub">entry point, routing</text>
+
+  <rect x="420" y="110" width="320" height="90" rx="12" fill="#0c2d5a" stroke="#1d5faa" stroke-width="1"/>
+  <text x="580" y="148" text-anchor="middle" class="box-title" fill="#5ba4f5">sidebar/</text>
+  <text x="580" y="172" text-anchor="middle" class="box-sub">portfolio config UI (5 modules)</text>
+
+  <rect x="780" y="110" width="320" height="90" rx="12" fill="#0c2d5a" stroke="#1d5faa" stroke-width="1"/>
+  <text x="940" y="148" text-anchor="middle" class="box-title" fill="#5ba4f5">ui/</text>
+  <text x="940" y="172" text-anchor="middle" class="box-sub">header, landing, dialogs, styles</text>
+
+  <!-- Arrows row 1 → row 2 -->
+  <line x1="220" y1="200" x2="380" y2="250" stroke="#334155" stroke-width="1.5"/>
+  <polygon points="380,250 372,244 374,252" fill="#334155"/>
+  <line x1="580" y1="200" x2="780" y2="250" stroke="#334155" stroke-width="1.5"/>
+  <polygon points="780,250 772,244 774,252" fill="#334155"/>
+
+  <!-- Row 2: business logic (purple) -->
+  <rect x="140" y="250" width="380" height="90" rx="12" fill="#241548" stroke="#5334a8" stroke-width="1"/>
+  <text x="330" y="288" text-anchor="middle" class="box-title" fill="#a78bec">views/</text>
+  <text x="330" y="312" text-anchor="middle" class="box-sub">overview, risk, MC, export (10 tabs)</text>
+
+  <rect x="620" y="250" width="380" height="90" rx="12" fill="#241548" stroke="#5334a8" stroke-width="1"/>
+  <text x="810" y="288" text-anchor="middle" class="box-title" fill="#a78bec">services/</text>
+  <text x="810" y="312" text-anchor="middle" class="box-sub">portfolio analysis pipeline</text>
+
+  <!-- Dashed connector row 2 -->
+  <line x1="520" y1="295" x2="620" y2="295" stroke="#3f3272" stroke-width="1" stroke-dasharray="6 4"/>
+
+  <!-- Arrows row 2 → row 3 -->
+  <path d="M 760 340 L 760 370 L 280 370 L 280 400" fill="none" stroke="#334155" stroke-width="1.5"/>
+  <polygon points="280,400 274,392 286,392" fill="#334155"/>
+  <line x1="810" y1="340" x2="620" y2="400" stroke="#334155" stroke-width="1.5"/>
+  <polygon points="620,400 614,390 622,392" fill="#334155"/>
+  <line x1="860" y1="340" x2="940" y2="400" stroke="#334155" stroke-width="1.5"/>
+  <polygon points="940,400 932,392 940,394" fill="#334155"/>
+
+  <!-- Row 3: data layer (teal) -->
+  <rect x="100" y="400" width="320" height="90" rx="12" fill="#04261e" stroke="#0e6e56" stroke-width="1"/>
+  <text x="260" y="438" text-anchor="middle" class="box-title" fill="#4dd4a8">data_loader.py</text>
+  <text x="260" y="462" text-anchor="middle" class="box-sub">Yahoo Finance / demo data</text>
+
+  <rect x="460" y="400" width="320" height="90" rx="12" fill="#04261e" stroke="#0e6e56" stroke-width="1"/>
+  <text x="620" y="438" text-anchor="middle" class="box-title" fill="#4dd4a8">analysis.py</text>
+  <text x="620" y="462" text-anchor="middle" class="box-sub">pure finance calculations</text>
+
+  <rect x="820" y="400" width="320" height="90" rx="12" fill="#04261e" stroke="#0e6e56" stroke-width="1"/>
+  <text x="980" y="438" text-anchor="middle" class="box-title" fill="#4dd4a8">demo_data.py</text>
+  <text x="980" y="462" text-anchor="middle" class="box-sub">offline demo generator</text>
+
+  <!-- Separator -->
+  <line x1="60" y1="530" x2="1140" y2="530" stroke="#1e293b" stroke-width="1" stroke-dasharray="8 4"/>
+  <text x="600" y="555" text-anchor="middle" class="sep-label">shared modules</text>
+
+  <!-- Row 4: shared (gray) -->
+  <rect x="60" y="580" width="220" height="90" rx="12" fill="#0f172a" stroke="#334155" stroke-width="1"/>
+  <text x="170" y="618" text-anchor="middle" class="box-title" fill="#94a3b8">models.py</text>
+  <text x="170" y="642" text-anchor="middle" class="box-sub">enums, validation</text>
+
+  <rect x="320" y="580" width="220" height="90" rx="12" fill="#0f172a" stroke="#334155" stroke-width="1"/>
+  <text x="430" y="618" text-anchor="middle" class="box-title" fill="#94a3b8">visualization.py</text>
+  <text x="430" y="642" text-anchor="middle" class="box-sub">Plotly chart builders</text>
+
+  <rect x="580" y="580" width="220" height="90" rx="12" fill="#0f172a" stroke="#334155" stroke-width="1"/>
+  <text x="690" y="618" text-anchor="middle" class="box-title" fill="#94a3b8">constants.py</text>
+  <text x="690" y="642" text-anchor="middle" class="box-sub">shared config values</text>
+
+  <rect x="840" y="580" width="220" height="90" rx="12" fill="#0f172a" stroke="#334155" stroke-width="1"/>
+  <text x="950" y="618" text-anchor="middle" class="box-title" fill="#94a3b8">theme.py</text>
+  <text x="950" y="642" text-anchor="middle" class="box-sub">colour palette</text>
+
+  <!-- Row 5: tests -->
+  <rect x="60" y="700" width="220" height="80" rx="12" fill="#0f172a" stroke="#334155" stroke-width="1"/>
+  <text x="170" y="734" text-anchor="middle" class="box-title" fill="#94a3b8">tests/</text>
+  <text x="170" y="756" text-anchor="middle" class="box-sub">53 offline unit tests</text>
+
+  <!-- Bottom tagline -->
+  <text x="600" y="800" text-anchor="middle" font-size="16" font-weight="600" fill="#334155" font-family="'Segoe UI', sans-serif">Clean separation makes the project easier to test, maintain and present.</text>
+</svg>
