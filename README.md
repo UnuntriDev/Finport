@@ -82,21 +82,29 @@ run Monte Carlo simulations, generate optimization results, and export reports.
 ├── analysis.py                    # Pure quantitative finance calculations
 ├── constants.py                   # Shared configuration constants
 ├── data_loader.py                 # Yahoo Finance price and metadata loading
-├── models.py                      # Dataclasses for analysis requests/results
+├── demo_data.py                   # Offline deterministic demo data generator
+├── models.py                      # Dataclasses, enums and validation
 ├── portfolio_config.py            # Save/load portfolio config parsing
 ├── portfolio_state.py             # Testable portfolio weight state logic
 ├── report_exporter.py             # PDF, Excel and CSV export helpers
-├── sidebar.py                     # Sidebar configuration, callbacks and input state
 ├── ticker_utils.py                # Ticker normalization and validation
 ├── theme.py                       # Shared chart/UI palette
 ├── ui_components.py               # Reusable Streamlit HTML components
 ├── visualization.py               # Plotly chart builders
 ├── content/
 │   └── glossary.py                # Finance glossary content
+├── sidebar/
+│   ├── __init__.py                # Public API: render_sidebar, SidebarState
+│   ├── callbacks.py               # Sidebar event callbacks
+│   ├── donut.py                   # Allocation donut chart
+│   ├── sections.py                # Sidebar section renderers
+│   └── state.py                   # SidebarState dataclass
 ├── services/
 │   └── portfolio_analysis.py      # End-to-end analysis orchestration
 ├── ui/
 │   ├── dialogs.py                 # Streamlit dialogs
+│   ├── header.py                  # Dashboard header banner
+│   ├── landing.py                 # Landing page before analysis
 │   ├── loader.py                  # Money-themed loading overlay
 │   ├── logo.py                    # Inline SVG FinPort logo
 │   └── styles.py                  # Shared Streamlit CSS
@@ -115,14 +123,18 @@ run Monte Carlo simulations, generate optimization results, and export reports.
 ├── tests/
 │   ├── test_analysis.py
 │   ├── test_data_loader.py
+│   ├── test_demo_data.py
+│   ├── test_models.py
 │   ├── test_portfolio_analysis_service.py
 │   ├── test_portfolio_config.py
 │   ├── test_portfolio_state.py
+│   ├── test_portfolio_state_properties.py  # Hypothesis property tests
 │   └── test_report_exporter.py
 ├── .github/
 │   └── workflows/                 # GitHub Actions CI
 ├── .streamlit/
 │   └── config.toml                # Streamlit theme/config
+├── Dockerfile                     # Container build for deployment
 ├── pyproject.toml                 # pytest and Ruff configuration
 ├── requirements.txt               # Runtime dependencies
 ├── requirements-dev.txt           # Developer/test dependencies
@@ -133,7 +145,7 @@ run Monte Carlo simulations, generate optimization results, and export reports.
 
 FinPort separates the application into four main layers:
 
-1. **UI layer**: `app.py`, `ui/`, `ui_components.py`
+1. **UI layer**: `app.py`, `sidebar/`, `ui/`, `ui_components.py`
 2. **Application service layer**: `services/portfolio_analysis.py`
 3. **Finance calculation layer**: `analysis.py`
 4. **Data/export layer**: `data_loader.py`, `report_exporter.py`
